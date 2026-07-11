@@ -1,8 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Nested mobile app is its own repo
-mobile/
-
-# Secrets — never commit real .env files
+# Secrets — NEVER commit
 .env
 .env.*
 !.env.example
+
+# Local data / test artifacts
+test.db
+*.db
+*.sqlite3
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

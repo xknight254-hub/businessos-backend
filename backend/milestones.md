@@ -73,6 +73,7 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
+| M5.0 | AI model gateway | Omniroute (OpenAI-compatible) gateway client + config + `/ai/chat` endpoint + LLM service | `chat`/`structured` callable; offline contract tests pass |
 | M5.1 | OCR | Document/invoice OCR endpoint | Returns structured fields |
 | M5.2 | Voice bookkeeping | Speech-to-entry pipeline | Voice → ledger entry |
 | M5.3 | Forecasting | Demand/revenue forecast service | Returns predictions + confidence |

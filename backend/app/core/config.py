@@ -39,12 +39,27 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_BASE_URL: Optional[str] = None
 
+    # Omniroute AI model gateway (OpenAI-compatible /v1/chat/completions)
+    OMNIROUTE_API_KEY: Optional[str] = None
+    OMNIROUTE_BASE_URL: str = "https://api.omniroute.com/v1"
+
     # WhatsApp
     WHATSAPP_API_TOKEN: Optional[str] = None
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
 
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
+        # Empty-string env values (e.g. "MPESA_CONSUMER_KEY=") must
+        # behave as unset, so Optional credentials fall back to None and
+        # mock-mode detection (is_mock) stays correct.
+        for f in (
+            "MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_PASSKEY",
+            "MPESA_SHORTCODE", "ETIMS_API_KEY", "ETIMS_TIN", "ETIMS_API_URL",
+            "OPENAI_API_KEY", "OPENAI_BASE_URL", "OMNIROUTE_API_KEY",
+            "WHATSAPP_API_TOKEN", "WHATSAPP_PHONE_NUMBER_ID",
+        ):
+            if getattr(self, f) == "":
+                setattr(self, f, None)
         if self.ENVIRONMENT == "production":
             if self.SECRET_KEY == "dev-secret-key-change-in-production":
                 raise ValueError(

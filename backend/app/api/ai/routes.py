@@ -65,3 +65,35 @@ async def check_readiness(
         "ready": await engine.has_enough_data,
         "prophet_status": prophet,
     }
+
+
+from pydantic import BaseModel
+from app.services.llm import chat, GatewayError
+from fastapi import HTTPException, status
+
+
+class ChatRequest(BaseModel):
+    prompt: str
+    system: str | None = None
+    model: str = "gpt-4o-mini"
+    temperature: float = 0.3
+
+
+@router.post("/chat")
+async def ai_chat(
+    req: ChatRequest,
+    user: User = Depends(get_current_user),
+):
+    """Call the Omniroute model gateway (Phase 5)."""
+    try:
+        content = await chat(
+            req.prompt,
+            system=req.system,
+            model=req.model,
+            temperature=req.temperature,
+        )
+    except GatewayError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)
+        )
+    return {"content": content, "model": req.model}

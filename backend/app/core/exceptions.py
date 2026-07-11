@@ -56,6 +56,12 @@ class BadRequestError(BusinessError):
     status_code = 400
 
 
+class ConfigurationError(BusinessError):
+    """Server-side misconfiguration (missing keys, bad gateway URL)."""
+    code = "configuration"
+    status_code = 500
+
+
 class ForbiddenError(BusinessError):
     code = "forbidden"
     status_code = 403
