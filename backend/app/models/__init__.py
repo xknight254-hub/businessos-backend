@@ -303,3 +303,19 @@ class AutomationLog(Base):
     status = Column(String(20), default="pending")
     details = Column(Text, nullable=True)
     created_at = Column(DateTime, default=utcnow)
+
+
+# ---------- Notifications ----------
+
+class Notification(Base):
+    """In-app notifications produced by event-driven handlers (M4.3)."""
+    __tablename__ = "notifications"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    business_id = Column(String, ForeignKey("businesses.id"), nullable=False, index=True)
+    type = Column(String(50), nullable=False)  # low_stock, payment_received, customer_created
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    payload = Column(Text, nullable=True)  # JSON
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utcnow)

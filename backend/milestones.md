@@ -65,7 +65,7 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 |----|-----------|--------------|-----------|
 | M4.1 | Event bus | Redis/Celery event publisher + subscriber | Events emitted/received reliably | ✅ done (app/core/events.py: in-process EventBus w/ Redis seam; publish/subscribe; handlers never break publisher) |
 | M4.2 | Core events | `CustomerCreated`, `InvoiceCreated`, `PaymentReceived`, `InventoryAdjusted`, `WorkflowCompleted` | Each emitted on its trigger | ✅ done (CustomerCreated@crm, InvoiceCreated@sales, PaymentCompleted@accounting, InventoryAdjusted@inventory; WorkflowCompleted reserved) |
-| M4.3 | Handlers | Side-effect handlers wired to events (e.g. notify on PaymentReceived) | Handlers idempotent; tested | 🟡 planned (bus + tests in place; handlers land with notifications/automation modules) |
+| M4.3 | Handlers | Side-effect handlers wired to events (e.g. notify on PaymentReceived) | Handlers idempotent; tested | ✅ done (app/core/handlers.py: on_payment_completed->payment_received, on_low_stock->low_stock; Notification model + repo; GET /notifications; 3 tests) |
 
 ---
 

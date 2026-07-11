@@ -9,6 +9,7 @@ from app.core.exceptions import register_exception_handlers
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.core.audit import audit_middleware
 from app.core.ratelimit import RateLimitMiddleware
+from app.core.handlers import register_handlers
 
 logger = get_logger("businessos.main")
 
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
         import sentry_sdk
         sentry_sdk.init(dsn=getattr(settings, "SENTRY_DSN", ""))
     await init_db()
+    register_handlers()
     logger.info("startup", extra={"environment": settings.ENVIRONMENT, "version": settings.VERSION})
     yield
     logger.info("shutdown")
@@ -53,17 +55,18 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=audit_middleware)
 app.add_middleware(RateLimitMiddleware)
 
 
-from app.api.auth.routes import router as auth_router
-from app.api.products.routes import router as products_router
-from app.api.sales.routes import router as sales_router
-from app.api.payments.routes import router as payments_router
-from app.api.customers.routes import router as customers_router
+from app.modules.auth import router as auth_router
+from app.modules.inventory.router import router as products_router
+from app.modules.sales.router import router as sales_router
+from app.modules.accounting.router import router as payments_router
+from app.modules.crm.router import router as customers_router
 from app.api.reports.routes import router as reports_router
-from app.api.ai.routes import router as ai_router
+from app.modules.ai import router as ai_router
 from app.api.memory.routes import router as memory_router
 from app.api.dna.routes import router as dna_router
 from app.api.partner.routes import router as partner_router
-from app.api.automation.routes import router as automation_router
+from app.modules.automation import router as automation_router
+from app.modules.notifications.router import router as notifications_router
 
 app.include_router(auth_router)
 app.include_router(products_router)
@@ -76,6 +79,7 @@ app.include_router(memory_router)
 app.include_router(dna_router)
 app.include_router(partner_router)
 app.include_router(automation_router)
+app.include_router(notifications_router)
 
 
 @app.get("/health")

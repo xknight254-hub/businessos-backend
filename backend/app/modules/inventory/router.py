@@ -147,7 +147,7 @@ async def adjust_stock(
         business_id=user.business_id,
         payload={
             "product_id": req.product_id, "quantity": req.quantity,
-            "new_quantity": batch.quantity,
+            "new_quantity": batch.quantity, "min_quantity": batch.min_quantity,
         },
     ))
     return ProductResponse.model_validate(product)
