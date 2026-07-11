@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.rbac import require_permission
 from app.models import Payment, Sale, User
 from app.schemas.payments import (
     StkPushRequest, StkPushResponse, MpesaCallback, PaymentConfirmation, PaymentResponse,
@@ -21,7 +22,7 @@ mpesa = MpesaClient()
 async def initiate_stk_push(
     req: StkPushRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("payment:create")),
 ):
     """Initiate M-Pesa STK Push payment."""
     if req.amount < 1:

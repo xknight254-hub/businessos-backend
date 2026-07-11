@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.rbac import require_permission
 from app.models import Customer, User
 from app.schemas.customers import (
     CustomerCreate, CustomerUpdate, CustomerResponse, CustomerListResponse,
@@ -50,7 +51,7 @@ async def list_customers(
 async def create_customer(
     req: CustomerCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("customer:create")),
 ):
     # Check for duplicate phone
     if req.phone:
@@ -99,7 +100,7 @@ async def update_customer(
     customer_id: str,
     req: CustomerUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("customer:update")),
 ):
     result = await db.execute(
         select(Customer).where(
@@ -124,7 +125,7 @@ async def add_credit(
     customer_id: str,
     amount: int = Query(..., ge=1),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("customer:credit")),
 ):
     result = await db.execute(
         select(Customer).where(
@@ -149,7 +150,7 @@ async def pay_credit(
     customer_id: str,
     amount: int = Query(..., ge=1),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("customer:credit")),
 ):
     result = await db.execute(
         select(Customer).where(

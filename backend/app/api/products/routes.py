@@ -90,7 +90,7 @@ async def lookup_barcode(
 async def create_product(
     req: ProductCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("product:create")),
 ):
     product = Product(
         business_id=user.business_id,
@@ -144,7 +144,7 @@ async def update_product(
     product_id: str,
     req: ProductUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("product:update")),
 ):
     result = await db.execute(
         select(Product).where(
@@ -187,7 +187,7 @@ async def delete_product(
 async def adjust_stock(
     req: StockAdjustment,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("product:stock_adjust")),
 ):
     result = await db.execute(
         select(Product).where(

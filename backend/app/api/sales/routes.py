@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.rbac import require_permission
 from app.models import (
     Sale, SaleItem, Payment, Product, InventoryBatch, Customer, Business,
 )
@@ -22,11 +23,9 @@ router = APIRouter(prefix="/sales", tags=["Sales"])
 async def create_sale(
     req: SaleCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("sale:create")),
 ):
-    if user.role not in ("owner", "manager", "staff"):
-        raise ForbiddenError("Not authorized to make sales")
-    
+    # Role authorization handled by require_permission("sale:create")
     # Calculate total from items
     total = 0
     sale_items_data = []
@@ -263,11 +262,9 @@ async def get_sale(
 async def void_sale(
     sale_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("sale:void")),
 ):
-    if user.role not in ("owner", "manager"):
-        raise ForbiddenError("Only owner/manager can void sales")
-    
+    # Role authorization handled by require_permission("sale:void")
     result = await db.execute(
         select(Sale).where(
             Sale.id == sale_id,
