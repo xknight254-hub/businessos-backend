@@ -1,0 +1,1 @@
+"""Hr module tests package."""

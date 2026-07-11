@@ -1,0 +1,1 @@
+"""auth module tests package."""

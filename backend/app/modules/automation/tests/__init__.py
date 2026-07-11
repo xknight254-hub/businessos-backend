@@ -1,0 +1,1 @@
+"""automation module tests package."""

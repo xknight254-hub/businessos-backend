@@ -1,0 +1,1 @@
+"""Sales module tests package."""
