@@ -1,22 +1,40 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
+from datetime import datetime, timezone, timedelta
+from typing import Optional
+
 from app.core.database import get_db
-from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.exceptions import NotFoundError, BadRequestError
 from app.core.rbac import require_permission
-from app.models import (
-    Sale, SaleItem, Payment, Product, InventoryBatch, Customer, Business,
-)
+from app.models import User, Sale, SaleItem, Payment, Product, InventoryBatch, Customer
 from app.schemas.sales import (
     SaleCreate, SaleResponse, SaleListResponse, SaleItemResponse,
     PaymentResponse, DailySummaryResponse,
 )
 from app.api.auth.dependencies import get_current_user
-from app.models import User
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from app.repositories import SaleRepository
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
+
+
+def _repo(db: AsyncSession, user: User) -> SaleRepository:
+    return SaleRepository(db, user.business_id)
+
+
+async def _sale_to_response(sale: Sale, db: AsyncSession, user: User) -> SaleResponse:
+    repo = _repo(db, user)
+    items = []
+    for si, pname in await repo.get_items(sale.id):
+        items.append(SaleItemResponse(
+            id=si.id, product_id=si.product_id, product_name=pname,
+            quantity=si.quantity, unit_price=si.unit_price, total=si.total,
+        ))
+    payments = [PaymentResponse.model_validate(p) for p in await repo.get_payments(sale.id)]
+    return SaleResponse(
+        id=sale.id, total=sale.total, discount=sale.discount, status=sale.status,
+        payment_method=sale.payment_method, items=items, payments=payments,
+        customer_id=sale.customer_id, created_at=sale.created_at,
+    )
 
 
 @router.post("", response_model=SaleResponse, status_code=201)
@@ -25,129 +43,44 @@ async def create_sale(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("sale:create")),
 ):
-    # Role authorization handled by require_permission("sale:create")
-    # Calculate total from items
+    repo = _repo(db, user)
     total = 0
     sale_items_data = []
-    
     for item in req.items:
-        product_result = await db.execute(
-            select(Product).where(
-                Product.id == item.product_id,
-                Product.business_id == user.business_id,
-                Product.is_active == True,
-            )
-        )
-        product = product_result.scalar_one_or_none()
+        product = await repo.get_product(item.product_id)
         if not product:
             raise NotFoundError(f"Product {item.product_id} not found")
-        
         item_total = product.price * item.quantity
         total += item_total
-        sale_items_data.append({
-            "product": product,
-            "quantity": item.quantity,
-            "unit_price": product.price,
-            "total": item_total,
-        })
-    
+        sale_items_data.append({"product": product, "quantity": item.quantity,
+                               "unit_price": product.price, "total": item_total})
     total -= req.discount
-    
-    # Create sale
-    sale = Sale(
-        business_id=user.business_id,
-        branch_id="",
-        user_id=user.id,
-        customer_id=req.customer_id,
-        total=total,
-        discount=req.discount,
-        payment_method=req.payment_method,
+
+    sale = await repo.create_sale(
+        branch_id="", user_id=user.id, customer_id=req.customer_id,
+        total=total, discount=req.discount, payment_method=req.payment_method,
         notes=req.notes,
     )
-    db.add(sale)
-    await db.flush()
-    
-    # Create sale items
     for sd in sale_items_data:
-        sale_item = SaleItem(
-            sale_id=sale.id,
-            product_id=sd["product"].id,
-            quantity=sd["quantity"],
-            unit_price=sd["unit_price"],
-            total=sd["total"],
+        await repo.create_sale_item(
+            sale_id=sale.id, product_id=sd["product"].id,
+            quantity=sd["quantity"], unit_price=sd["unit_price"], total=sd["total"],
         )
-        db.add(sale_item)
-        
-        # Decrement inventory
-        inv_result = await db.execute(
-            select(InventoryBatch).where(
-                InventoryBatch.product_id == sd["product"].id,
-                InventoryBatch.business_id == user.business_id,
-            ).limit(1)
-        )
-        batch = inv_result.scalar_one_or_none()
+        batch = await repo.get_inventory_batch(sd["product"].id)
         if batch:
             batch.quantity -= sd["quantity"]
-    
-    # Create payment
-    payment = Payment(
-        sale_id=sale.id,
-        amount=total,
-        method=req.payment_method,
-    )
-    db.add(payment)
-    
-    # Update customer total
+
+    await repo.create_payment(sale_id=sale.id, amount=total, method=req.payment_method)
+
     if req.customer_id:
-        cust_result = await db.execute(
-            select(Customer).where(Customer.id == req.customer_id)
-        )
-        customer = cust_result.scalar_one_or_none()
+        customer = await repo.get_customer(req.customer_id)
         if customer:
             customer.total_visits = (customer.total_visits or 0) + 1
             customer.total_spent = (customer.total_spent or 0) + total
             customer.last_visit = datetime.now(timezone.utc)
-    
+
     await db.flush()
-    return await _sale_to_response(sale, db)
-
-
-async def _sale_to_response(sale: Sale, db: AsyncSession) -> SaleResponse:
-    # Get items
-    items_result = await db.execute(
-        select(SaleItem, Product.name).join(Product, SaleItem.product_id == Product.id)
-        .where(SaleItem.sale_id == sale.id)
-    )
-    items = []
-    for si, pname in items_result.all():
-        items.append(SaleItemResponse(
-            id=si.id,
-            product_id=si.product_id,
-            product_name=pname,
-            quantity=si.quantity,
-            unit_price=si.unit_price,
-            total=si.total,
-        ))
-    
-    # Get payments
-    payments_result = await db.execute(
-        select(Payment).where(Payment.sale_id == sale.id)
-    )
-    payments = [
-        PaymentResponse.model_validate(p) for p in payments_result.scalars().all()
-    ]
-    
-    return SaleResponse(
-        id=sale.id,
-        total=sale.total,
-        discount=sale.discount,
-        status=sale.status,
-        payment_method=sale.payment_method,
-        items=items,
-        payments=payments,
-        customer_id=sale.customer_id,
-        created_at=sale.created_at,
-    )
+    return await _sale_to_response(sale, db, user)
 
 
 @router.get("", response_model=SaleListResponse)
@@ -159,26 +92,11 @@ async def list_sales(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    query = select(Sale).where(Sale.business_id == user.business_id)
-    
-    if date_from:
-        query = query.where(Sale.created_at >= datetime.fromisoformat(date_from))
-    if date_to:
-        query = query.where(Sale.created_at <= datetime.fromisoformat(date_to) + timedelta(days=1))
-    
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-    
-    result = await db.execute(
-        query.order_by(desc(Sale.created_at))
-        .offset((page - 1) * per_page).limit(per_page)
-    )
-    sales = result.scalars().all()
-    
-    items = []
-    for sale in sales:
-        items.append(await _sale_to_response(sale, db))
-    
+    df = datetime.fromisoformat(date_from) if date_from else None
+    dt = datetime.fromisoformat(date_to) + timedelta(days=1) if date_to else None
+    repo = _repo(db, user)
+    sales, total = await repo.list(page=page, per_page=per_page, date_from=df, date_to=dt)
+    items = [await _sale_to_response(s, db, user) for s in sales]
     return SaleListResponse(items=items, total=total, page=page, per_page=per_page)
 
 
@@ -188,54 +106,21 @@ async def daily_summary(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    repo = _repo(db, user)
     query_date = datetime.fromisoformat(date) if date else datetime.now(timezone.utc)
     day_start = query_date.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
-    
-    sales_query = select(Sale).where(
-        Sale.business_id == user.business_id,
-        Sale.created_at >= day_start,
-        Sale.created_at < day_end,
-        Sale.status == "completed",
-    )
-    result = await db.execute(sales_query)
-    sales = result.scalars().all()
-    
+    sales = await repo.list_by_day(day_start, day_end)
     total_revenue = sum(s.total for s in sales)
     total_discount = sum(s.discount for s in sales)
     total_cash = sum(s.total for s in sales if s.payment_method == "cash")
     total_mpesa = sum(s.total for s in sales if s.payment_method == "mpesa")
-    
-    # Top products
-    items_result = await db.execute(
-        select(
-            Product.name, func.sum(SaleItem.quantity).label("qty"),
-            func.sum(SaleItem.total).label("rev")
-        )
-        .join(SaleItem, SaleItem.product_id == Product.id)
-        .join(Sale, Sale.id == SaleItem.sale_id)
-        .where(
-            Sale.business_id == user.business_id,
-            Sale.created_at >= day_start,
-            Sale.created_at < day_end,
-        )
-        .group_by(Product.name)
-        .order_by(desc("rev"))
-        .limit(5)
-    )
-    top_products = [
-        {"name": row[0], "quantity": row[1], "revenue": row[2]}
-        for row in items_result.all()
-    ]
-    
+    top_products = await repo.top_products(day_start, day_end)
     return DailySummaryResponse(
         date=query_date.strftime("%Y-%m-%d"),
-        total_sales=len(sales),
-        total_revenue=total_revenue,
-        total_cash=total_cash,
-        total_mpesa=total_mpesa,
-        total_discount=total_discount,
-        transaction_count=len(sales),
+        total_sales=len(sales), total_revenue=total_revenue,
+        total_cash=total_cash, total_mpesa=total_mpesa,
+        total_discount=total_discount, transaction_count=len(sales),
         top_products=top_products,
     )
 
@@ -246,16 +131,10 @@ async def get_sale(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Sale).where(
-            Sale.id == sale_id,
-            Sale.business_id == user.business_id,
-        )
-    )
-    sale = result.scalar_one_or_none()
+    sale = await _repo(db, user).get(sale_id)
     if not sale:
         raise NotFoundError("Sale not found")
-    return await _sale_to_response(sale, db)
+    return await _sale_to_response(sale, db, user)
 
 
 @router.post("/{sale_id}/void", response_model=SaleResponse)
@@ -264,35 +143,16 @@ async def void_sale(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("sale:void")),
 ):
-    # Role authorization handled by require_permission("sale:void")
-    result = await db.execute(
-        select(Sale).where(
-            Sale.id == sale_id,
-            Sale.business_id == user.business_id,
-        )
-    )
-    sale = result.scalar_one_or_none()
+    repo = _repo(db, user)
+    sale = await repo.get(sale_id)
     if not sale:
         raise NotFoundError("Sale not found")
     if sale.status != "completed":
         raise BadRequestError("Sale already voided")
-    
     sale.status = "voided"
-    
-    # Restore inventory
-    items_result = await db.execute(
-        select(SaleItem).where(SaleItem.sale_id == sale_id)
-    )
-    for si in items_result.scalars().all():
-        inv_result = await db.execute(
-            select(InventoryBatch).where(
-                InventoryBatch.product_id == si.product_id,
-                InventoryBatch.business_id == user.business_id,
-            ).limit(1)
-        )
-        batch = inv_result.scalar_one_or_none()
+    for si in (await repo.get_items(sale_id)):
+        batch = await repo.get_inventory_batch(si[0].product_id)
         if batch:
-            batch.quantity += si.quantity
-    
+            batch.quantity += si[0].quantity
     await db.flush()
-    return await _sale_to_response(sale, db)
+    return await _sale_to_response(sale, db, user)

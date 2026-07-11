@@ -1,18 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+
 from app.core.database import get_db
-from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.exceptions import NotFoundError, ConflictError, BadRequestError
 from app.core.rbac import require_permission
-from app.models import Customer, User
+from app.models import User
 from app.schemas.customers import (
     CustomerCreate, CustomerUpdate, CustomerResponse, CustomerListResponse,
 )
 from app.api.auth.dependencies import get_current_user
-from datetime import datetime, timezone
-from typing import Optional
+from app.repositories import CustomerRepository
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
+
+
+def _repo(db: AsyncSession, user: User) -> CustomerRepository:
+    return CustomerRepository(db, user.business_id)
 
 
 @router.get("", response_model=CustomerListResponse)
@@ -23,24 +26,7 @@ async def list_customers(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    query = select(Customer).where(Customer.business_id == user.business_id)
-    
-    if search:
-        query = query.where(
-            or_(
-                Customer.name.ilike(f"%{search}%"),
-                Customer.phone.ilike(f"%{search}%"),
-            )
-        )
-    
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-    
-    result = await db.execute(
-        query.order_by(Customer.name).offset((page - 1) * per_page).limit(per_page)
-    )
-    customers = result.scalars().all()
-    
+    customers, total = await _repo(db, user).list(page=page, per_page=per_page, search=search)
     return CustomerListResponse(
         items=[CustomerResponse.model_validate(c) for c in customers],
         total=total, page=page, per_page=per_page,
@@ -53,27 +39,14 @@ async def create_customer(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("customer:create")),
 ):
-    # Check for duplicate phone
+    repo = _repo(db, user)
     if req.phone:
-        result = await db.execute(
-            select(Customer).where(
-                Customer.phone == req.phone,
-                Customer.business_id == user.business_id,
-            )
-        )
-        if result.scalar_one_or_none():
+        if await repo.get_by_phone(req.phone):
             raise ConflictError("Customer with this phone already exists")
-    
-    customer = Customer(
-        business_id=user.business_id,
-        name=req.name,
-        phone=req.phone,
-        email=req.email,
-        credit_limit=req.credit_limit or 0,
-        notes=req.notes,
+    customer = await repo.create(
+        name=req.name, phone=req.phone, email=req.email,
+        credit_limit=req.credit_limit or 0, notes=req.notes,
     )
-    db.add(customer)
-    await db.flush()
     return CustomerResponse.model_validate(customer)
 
 
@@ -83,13 +56,7 @@ async def get_customer(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Customer).where(
-            Customer.id == customer_id,
-            Customer.business_id == user.business_id,
-        )
-    )
-    customer = result.scalar_one_or_none()
+    customer = await _repo(db, user).get(customer_id)
     if not customer:
         raise NotFoundError("Customer not found")
     return CustomerResponse.model_validate(customer)
@@ -102,20 +69,12 @@ async def update_customer(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("customer:update")),
 ):
-    result = await db.execute(
-        select(Customer).where(
-            Customer.id == customer_id,
-            Customer.business_id == user.business_id,
-        )
-    )
-    customer = result.scalar_one_or_none()
+    repo = _repo(db, user)
+    customer = await repo.get(customer_id)
     if not customer:
         raise NotFoundError("Customer not found")
-    
-    update_data = req.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
+    for key, value in req.model_dump(exclude_unset=True).items():
         setattr(customer, key, value)
-    
     await db.flush()
     return CustomerResponse.model_validate(customer)
 
@@ -127,19 +86,11 @@ async def add_credit(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("customer:credit")),
 ):
-    result = await db.execute(
-        select(Customer).where(
-            Customer.id == customer_id,
-            Customer.business_id == user.business_id,
-        )
-    )
-    customer = result.scalar_one_or_none()
+    customer = await _repo(db, user).get(customer_id)
     if not customer:
         raise NotFoundError("Customer not found")
-    
     if customer.credit_balance + amount > (customer.credit_limit or 0):
         raise BadRequestError("Credit limit exceeded")
-    
     customer.credit_balance = (customer.credit_balance or 0) + amount
     await db.flush()
     return CustomerResponse.model_validate(customer)
@@ -152,16 +103,9 @@ async def pay_credit(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("customer:credit")),
 ):
-    result = await db.execute(
-        select(Customer).where(
-            Customer.id == customer_id,
-            Customer.business_id == user.business_id,
-        )
-    )
-    customer = result.scalar_one_or_none()
+    customer = await _repo(db, user).get(customer_id)
     if not customer:
         raise NotFoundError("Customer not found")
-    
     customer.credit_balance = max(0, (customer.credit_balance or 0) - amount)
     await db.flush()
     return CustomerResponse.model_validate(customer)

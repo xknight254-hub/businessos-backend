@@ -1,18 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Query, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+
 from app.core.database import get_db
-from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.exceptions import NotFoundError
 from app.core.rbac import require_permission
-from app.models import Product, InventoryBatch
+from app.models import User
 from app.schemas.products import (
     ProductCreate, ProductUpdate, ProductResponse,
     ProductListResponse, BarcodeLookupResponse, StockAdjustment,
 )
 from app.api.auth.dependencies import get_current_user
-from app.models import User
+from app.repositories import ProductRepository
 
 router = APIRouter(prefix="/products", tags=["Products"])
+
+
+def _repo(db: AsyncSession, user: User) -> ProductRepository:
+    return ProductRepository(db, user.business_id)
 
 
 @router.get("", response_model=ProductListResponse)
@@ -25,46 +29,16 @@ async def list_products(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    query = select(Product).where(
-        Product.business_id == user.business_id,
-        Product.is_active == True,
+    repo = _repo(db, user)
+    products, total = await repo.list(
+        page=page, per_page=per_page, search=search, category=category, low_stock=low_stock,
     )
-    
-    if search:
-        query = query.where(
-            or_(
-                Product.name.ilike(f"%{search}%"),
-                Product.barcode.ilike(f"%{search}%"),
-            )
-        )
-    if category:
-        query = query.where(Product.category == category)
-    
-    # Count total
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-    
-    # Paginate
-    result = await db.execute(
-        query.order_by(Product.name).offset((page - 1) * per_page).limit(per_page)
-    )
-    products = result.scalars().all()
-    
-    # Enrich with inventory quantity
     items = []
     for p in products:
-        inv_q = await db.execute(
-            select(func.coalesce(func.sum(InventoryBatch.quantity), 0))
-            .where(
-                InventoryBatch.product_id == p.id,
-                InventoryBatch.business_id == user.business_id,
-            )
-        )
-        qty = inv_q.scalar() or 0
+        qty = await repo.inventory_quantity(p.id)
         p_dict = ProductResponse.model_validate(p).model_dump()
         p_dict["quantity"] = qty
         items.append(ProductResponse(**p_dict))
-    
     return ProductListResponse(items=items, total=total, page=page, per_page=per_page)
 
 
@@ -74,13 +48,7 @@ async def lookup_barcode(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Product).where(
-            Product.barcode == barcode,
-            Product.business_id == user.business_id,
-        )
-    )
-    product = result.scalar_one_or_none()
+    product = await _repo(db, user).get_by_barcode(barcode)
     if product:
         return BarcodeLookupResponse(found=True, product=ProductResponse.model_validate(product))
     return BarcodeLookupResponse(found=False)
@@ -92,32 +60,16 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("product:create")),
 ):
-    product = Product(
-        business_id=user.business_id,
-        name=req.name,
-        name_sw=req.name_sw,
-        barcode=req.barcode,
-        category=req.category,
-        unit=req.unit,
-        price=req.price,
-        cost_price=req.cost_price,
-        tax_rate=req.tax_rate,
+    repo = _repo(db, user)
+    product = await repo.create(
+        name=req.name, name_sw=req.name_sw, barcode=req.barcode,
+        category=req.category, unit=req.unit, price=req.price,
+        cost_price=req.cost_price, tax_rate=req.tax_rate,
     )
-    db.add(product)
-    await db.flush()
-    
-    # Create initial inventory batch
     if req.quantity > 0:
-        batch = InventoryBatch(
-            business_id=user.business_id,
-            branch_id="",  # Will be set when branch system is complete
-            product_id=product.id,
-            quantity=req.quantity,
-            min_quantity=req.min_quantity,
+        await repo.add_inventory_batch(
+            product_id=product.id, quantity=req.quantity, min_quantity=req.min_quantity,
         )
-        db.add(batch)
-    
-    await db.flush()
     return ProductResponse.model_validate(product)
 
 
@@ -127,13 +79,7 @@ async def get_product(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Product).where(
-            Product.id == product_id,
-            Product.business_id == user.business_id,
-        )
-    )
-    product = result.scalar_one_or_none()
+    product = await _repo(db, user).get(product_id)
     if not product:
         raise NotFoundError("Product not found")
     return ProductResponse.model_validate(product)
@@ -146,20 +92,12 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("product:update")),
 ):
-    result = await db.execute(
-        select(Product).where(
-            Product.id == product_id,
-            Product.business_id == user.business_id,
-        )
-    )
-    product = result.scalar_one_or_none()
+    repo = _repo(db, user)
+    product = await repo.get(product_id)
     if not product:
         raise NotFoundError("Product not found")
-    
-    update_data = req.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
+    for key, value in req.model_dump(exclude_unset=True).items():
         setattr(product, key, value)
-    
     await db.flush()
     return ProductResponse.model_validate(product)
 
@@ -170,13 +108,8 @@ async def delete_product(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("product:delete")),
 ):
-    result = await db.execute(
-        select(Product).where(
-            Product.id == product_id,
-            Product.business_id == user.business_id,
-        )
-    )
-    product = result.scalar_one_or_none()
+    repo = _repo(db, user)
+    product = await repo.get(product_id)
     if not product:
         raise NotFoundError("Product not found")
     product.is_active = False
@@ -189,36 +122,11 @@ async def adjust_stock(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("product:stock_adjust")),
 ):
-    result = await db.execute(
-        select(Product).where(
-            Product.id == req.product_id,
-            Product.business_id == user.business_id,
-        )
-    )
-    product = result.scalar_one_or_none()
+    repo = _repo(db, user)
+    product = await repo.get(req.product_id)
     if not product:
         raise NotFoundError("Product not found")
-    
-    # Find or create inventory batch
-    batch_result = await db.execute(
-        select(InventoryBatch).where(
-            InventoryBatch.product_id == req.product_id,
-            InventoryBatch.business_id == user.business_id,
-        ).limit(1)
-    )
-    batch = batch_result.scalar_one_or_none()
-    if batch:
-        batch.quantity += req.quantity
-    else:
-        batch = InventoryBatch(
-            business_id=user.business_id,
-            branch_id="",
-            product_id=product.id,
-            quantity=max(0, req.quantity),
-        )
-        db.add(batch)
-    
-    await db.flush()
+    await repo.get_or_create_batch(product_id=product.id, quantity=req.quantity)
     return ProductResponse.model_validate(product)
 
 
@@ -227,15 +135,4 @@ async def list_categories(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Product.category, func.count(Product.id))
-        .where(
-            Product.business_id == user.business_id,
-            Product.is_active == True,
-            Product.category.isnot(None),
-        )
-        .group_by(Product.category)
-        .order_by(Product.category)
-    )
-    categories = [{"name": row[0], "count": row[1]} for row in result.all()]
-    return {"categories": categories}
+    return {"categories": await _repo(db, user).list_categories()}

@@ -53,9 +53,9 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
-| M3.1 | Module file convention | Each domain folder has `router/service/repository/schemas/models/permissions/tasks/events/tests` | All 12 modules conform |
-| M3.2 | Repository layer | DB access isolated to `repository.py`; services depend on repos not sessions | No raw SQL/session use outside repos |
-| M3.3 | Modules: auth, crm, inventory, sales, procurement, accounting, payroll, hr, analytics, ai, automation, notifications | Full module skeleton per convention | Each module independently testable |
+| M3.1 | Module file convention | Each domain folder has `router/service/repository/schemas/models/permissions/tasks/events/tests` | All 12 modules conform | 🟡 planned |
+| M3.2 | Repository layer | DB access isolated to `repository.py`; services depend on repos not sessions | No raw SQL/session use outside repos | ✅ done (products/customers/sales/payments repos; routers slimmed) |
+| M3.3 | Modules: auth, crm, inventory, sales, procurement, accounting, payroll, hr, analytics, ai, automation, notifications | Full module skeleton per convention | Each module independently testable | 🟡 planned (core 4 done) |
 
 ---
 
