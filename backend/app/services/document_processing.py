@@ -7,8 +7,11 @@ OCR engines (auto-selected by availability):
   - Tesseract (pytesseract) — lightweight, preferred for printed receipts.
   - EasyOCR — heavier (torch), better for varied/handwritten text.
 
-Voice/STT (Whisper) remains a clear, honest 501 until an engine is
-registered. We do not fake OCR/transcription output.
+Voice/STT engines (auto-selected by availability):
+  - faster-whisper — local, no external API; preferred.
+  - OpenAI Whisper (openai) — fallback if installed.
+
+We do not fake OCR/transcription output.
 """
 from __future__ import annotations
 
@@ -119,6 +122,83 @@ class EasyOCRDocumentProcessor(DocumentProcessor):
             os.unlink(path)
 
 
+class WhisperVoiceProcessor(VoiceProcessor):
+    """Speech-to-text via faster-whisper (local, no external API)."""
+
+    def __init__(self, model_size: str = "base") -> None:
+        self._model_size = model_size
+        self._model = None
+
+    def _get_model(self):
+        if self._model is None:
+            from faster_whisper import WhisperModel
+            self._model = WhisperModel(self._model_size, device="cpu", compute_type="int8")
+        return self._model
+
+    async def transcribe(self, audio_bytes: bytes, content_type: str) -> dict:
+        import io
+        import os
+        import tempfile
+
+        suffix = ".wav" if "wav" in content_type else ".mp3"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
+            tf.write(audio_bytes)
+            path = tf.name
+        try:
+            model = self._get_model()
+            segments, info = model.transcribe(path, beam_size=5)
+            text_parts = [s.text for s in segments]
+            text = "".join(text_parts).strip()
+            # word-level confidence average if available
+            confs = [getattr(s, "avg_logprob", None) for s in segments]
+            avg_conf = 0.0
+            if text_parts:
+                avg_conf = max(0.0, min(1.0, 1.0 + (sum(confs) / len(confs)) / 5.0)) if confs and confs[0] is not None else 0.0
+            return {
+                "text": text,
+                "confidence": round(avg_conf, 4),
+                "language": getattr(info, "language", None),
+                "entries": [{"start": round(s.start, 2), "end": round(s.end, 2), "text": s.text} for s in segments],
+            }
+        finally:
+            os.unlink(path)
+
+
+class OpenAIWhisperProcessor(VoiceProcessor):
+    """Speech-to-text via OpenAI's `whisper` package (local)."""
+
+    def __init__(self, model_size: str = "base") -> None:
+        self._model_size = model_size
+        self._model = None
+
+    def _get_model(self):
+        if self._model is None:
+            import whisper
+            self._model = whisper.load_model(self._model_size)
+        return self._model
+
+    async def transcribe(self, audio_bytes: bytes, content_type: str) -> dict:
+        import os
+        import tempfile
+
+        suffix = ".wav" if "wav" in content_type else ".mp3"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
+            tf.write(audio_bytes)
+            path = tf.name
+        try:
+            model = self._get_model()
+            result = model.transcribe(path)
+            text = (result.get("text") or "").strip()
+            return {
+                "text": text,
+                "confidence": 0.0,
+                "language": result.get("language"),
+                "entries": [],
+            }
+        finally:
+            os.unlink(path)
+
+
 _document_processor: DocumentProcessor = UnconfiguredProcessor()
 _voice_processor: VoiceProcessor = UnconfiguredProcessor()
 
@@ -139,7 +219,24 @@ def _auto_configure() -> None:
         pass
 
 
+def _auto_configure_voice() -> None:
+    """Prefer faster-whisper; fall back to openai Whisper if installed."""
+    global _voice_processor
+    try:
+        import faster_whisper  # noqa: F401
+        _voice_processor = WhisperVoiceProcessor()
+        return
+    except ImportError:
+        pass
+    try:
+        import whisper  # noqa: F401
+        _voice_processor = OpenAIWhisperProcessor()
+    except ImportError:
+        pass
+
+
 _auto_configure()
+_auto_configure_voice()
 
 
 def set_document_processor(p: DocumentProcessor) -> None:

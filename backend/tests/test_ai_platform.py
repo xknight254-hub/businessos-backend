@@ -7,7 +7,7 @@ from app.main import app
 from app.services.model_router import model_router, CostTier
 from app.services.document_processing import (
     UnconfiguredProcessor, get_document_processor, set_document_processor,
-    DocumentProcessor,
+    DocumentProcessor, get_voice_processor, set_voice_processor, VoiceProcessor,
 )
 
 
@@ -118,3 +118,35 @@ def test_prompt_create_and_version_bump():
     v1, v2, av, aactive, p1active = asyncio.get_event_loop().run_until_complete(_run())
     assert (v1, v2, av) == (1, 2, 2)
     assert aactive is True and p1active is False
+
+
+def test_voice_configured_returns_text():
+    class FakeVoice(VoiceProcessor):
+        async def transcribe(self, audio_bytes, content_type):
+            return {"text": "ni mingi ya maziwa", "confidence": 0.8, "language": "sw", "entries": []}
+    saved = get_voice_processor()
+    set_voice_processor(FakeVoice())
+    async def _run():
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            await c.post("/auth/send-code", json={"phone": "+254****4004"})
+            from app.api.auth.routes import _sms_codes
+            code = _sms_codes.get("+254****4004")
+            await c.post("/auth/verify-code", json={"phone": "+254****4004", "code": code})
+            reg = await c.post("/auth/register", json={
+                "phone": "+254****4004", "pin": "1234",
+                "business_name": "Voice Test2", "business_type": "retail",
+            })
+            tok = reg.json()["access_token"]
+            c.headers = {"Authorization": f"Bearer {tok}"}
+            from io import BytesIO
+            resp = await c.post(
+                "/ai/voice/transcribe",
+                files={"file": ("clip.wav", BytesIO(b"RIFFxxxxWAVE" + b"\x00" * 20), "audio/wav")},
+            )
+            return resp.status_code, resp.json()
+    import asyncio
+    code, body = asyncio.get_event_loop().run_until_complete(_run())
+    set_voice_processor(saved)
+    assert code == 200
+    assert body["text"] == "ni mingi ya maziwa" and body["language"] == "sw"
