@@ -165,7 +165,8 @@ class Payment(Base):
     sale_id = Column(String, ForeignKey("sales.id"), nullable=True)
     amount = Column(Integer, nullable=False)
     method = Column(String(20), nullable=False)  # mpesa, cash
-    reference = Column(String(100), nullable=True, index=True)  # M-Pesa receipt
+    reference = Column(String(100), nullable=True, index=True)  # M-Pesa CheckoutRequestID
+    mpesa_receipt = Column(String(100), nullable=True, index=True)  # M-PesaReceiptNumber
     status = Column(String(20), default="completed")  # pending, completed, failed
     created_at = Column(DateTime, default=utcnow)
 

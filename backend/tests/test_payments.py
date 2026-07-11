@@ -82,6 +82,47 @@ async def test_mpesa_callback_success(auth_client):
 
 
 @pytest.mark.asyncio
+async def test_mpesa_callback_preserves_reference_and_queryable(auth_client):
+    """Regression: callback must NOT overwrite `reference` (checkout ID) with
+    the M-Pesa receipt, otherwise /mpesa/query/{checkout_id} can't find it."""
+    from app.core.database import get_session_factory
+    from app.modules.accounting.models import Payment
+    from sqlalchemy import select
+
+    push = await auth_client.post("/payments/mpesa/stk-push", json={
+        "phone": "+254****", "amount": 500, "reference": "RefPreserve",
+    })
+    checkout_id = push.json()["checkout_request_id"]
+    callback_payload = {
+        "Body": {"stkCallback": {
+            "MerchantRequestID": push.json()["merchant_request_id"],
+            "CheckoutRequestID": checkout_id,
+            "ResultCode": 0,
+            "ResultDesc": "ok",
+            "CallbackMetadata": {"Item": [
+                {"Name": "Amount", "Value": 500},
+                {"Name": "MpesaReceiptNumber", "Value": "MOCK123ABC"},
+            ]},
+        }}
+    }
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        await c.post("/payments/mpesa/callback", json=callback_payload)
+
+    # reference must remain the checkout ID; mpesa_receipt must hold the receipt
+    factory = get_session_factory()
+    async with factory() as db:
+        from sqlalchemy import select
+        pay = (await db.execute(select(Payment).where(Payment.reference == checkout_id))).scalar_one_or_none()
+        assert pay is not None, "payment should remain findable by checkout ID"
+        assert pay.mpesa_receipt == "MOCK123ABC"
+
+    # and the query endpoint must locate it post-callback (ResultCode 0 = completed)
+    q = await auth_client.post(f"/payments/mpesa/query/{checkout_id}")
+    assert q.status_code == 200
+    assert q.json().get("ResultCode") == "0"
+
+
+@pytest.mark.asyncio
 async def test_query_payment_status(auth_client):
     push = await auth_client.post("/payments/mpesa/stk-push", json={
         "phone": "+254****",

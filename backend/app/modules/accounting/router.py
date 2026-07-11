@@ -83,7 +83,7 @@ async def mpesa_callback(
                 elif name == "Amount":
                     amount = int(float(value))
             payment.status = "completed"
-            payment.reference = mpesa_receipt or payment.reference
+            payment.mpesa_receipt = mpesa_receipt or payment.mpesa_receipt
 
             await event_bus.publish(Event(
                 type=PAYMENT_COMPLETED,

@@ -42,5 +42,6 @@ class PaymentResponse(BaseModel):
     amount: int
     method: str
     reference: Optional[str] = None
+    mpesa_receipt: Optional[str] = None
     status: str
     created_at: datetime

@@ -123,10 +123,10 @@ async def test_duplicate_mpesa_callback_no_duplicate_payment(auth_client):
         assert second.status_code == 200
 
     history = await auth_client.get("/payments/history")
-    # The callback stamps the payment with the M-Pesa receipt number; replaying
-    # the callback must update the same record rather than create a new one.
+    # The callback stamps the payment's mpesa_receipt (reference stays the
+    # checkout ID); replaying the callback must update the same record.
     items = [p for p in history.json()["items"]
-             if p["reference"] == "MOCKDUP01"]
+             if p.get("mpesa_receipt") == "MOCKDUP01"]
     assert len(items) == 1, "callback replay must not duplicate the payment"
     assert items[0]["status"] == "completed"
 

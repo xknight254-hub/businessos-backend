@@ -35,7 +35,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      ENVIRONMENT: production
+      ENVIRONMENT: development
       DATABASE_URL: postgresql+asyncpg://businessos:businessos@db:5432/businessos
       DATABASE_URL_SYNC: postgresql+psycopg2://businessos:businessos@db:5432/businessos
       REDIS_URL: redis://redis:6379/0
