@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+from pydantic import model_validator
 
 
 class Settings(BaseSettings):
@@ -41,6 +42,24 @@ class Settings(BaseSettings):
     # WhatsApp
     WHATSAPP_API_TOKEN: Optional[str] = None
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate(self) -> "Settings":
+        if self.ENVIRONMENT == "production":
+            if self.SECRET_KEY == "dev-secret-key-change-in-production":
+                raise ValueError(
+                    "SECRET_KEY must be set to a real secret in production "
+                    "(not the dev default)."
+                )
+            if not self.DATABASE_URL.startswith("postgresql"):
+                raise ValueError("DATABASE_URL must be a PostgreSQL connection string in production.")
+            if not self.OPENAI_API_KEY:
+                # AI features are optional but warned; not fatal.
+                import logging
+                logging.getLogger("businessos.config").warning(
+                    "OPENAI_API_KEY not set; AI features will be unavailable."
+                )
+        return self
 
 
 settings = Settings()

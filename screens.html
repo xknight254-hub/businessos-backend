@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BusinessOS — Screen Gallery</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #121212; font-family: 'Inter', sans-serif; color: #F5F0EB; padding: 24px; }
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  .subtitle { color: #B8B0A8; margin-bottom: 32px; font-size: 14px; }
+  
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px; }
+  
+  .screen { background: #1E1E1E; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+  .screen-header { padding: 16px; border-bottom: 1px solid #383838; display: flex; align-items: center; gap: 8px; }
+  .screen-header .title { font-weight: 600; font-size: 14px; }
+  .screen-header .count { background: #2C2C2C; padding: 2px 8px; border-radius: 12px; font-size: 11px; color: #B8B0A8; }
+  
+  .screen-body { padding: 16px; min-height: 480px; display: flex; flex-direction: column; gap: 12px; }
+  
+  /* Widget placeholders */
+  .appbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; margin-bottom: 8px; }
+  .appbar .left { display: flex; align-items: center; gap: 12px; }
+  .appbar .title-text { font-weight: 600; font-size: 18px; }
+  .appbar .icon { width: 24px; height: 24px; background: #2C2C2C; border-radius: 6px; }
+  
+  .card { background: #2C2C2C; border-radius: 8px; padding: 16px; }
+  .card-primary { background: #C96442; border-radius: 8px; padding: 16px; color: white; }
+  .card-teal { background: #2A6B6B; border-radius: 8px; padding: 16px; color: white; }
+  
+  .row { display: flex; gap: 12px; }
+  .col { flex: 1; }
+  
+  .stat { background: #2C2C2C; border-radius: 8px; padding: 12px; text-align: center; }
+  .stat .value { font-size: 20px; font-weight: 700; }
+  .stat .label { font-size: 11px; color: #B8B0A8; margin-top: 4px; }
+  
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+  .pill-green { background: #2E7D3230; color: #4CAF50; }
+  .pill-amber { background: #F9A82530; color: #F9A825; }
+  .pill-red { background: #C6282830; color: #E53935; }
+  
+  .product-grid { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0; }
+  .product-card { min-width: 120px; background: #2C2C2C; border-radius: 8px; padding: 12px; }
+  .product-card .thumb { height: 60px; background: #383838; border-radius: 4px; margin-bottom: 8px; }
+  .product-card .name { font-size: 12px; margin-bottom: 4px; }
+  .product-card .price { font-size: 14px; font-weight: 700; color: #C96442; }
+  
+  .list-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #2C2C2C; }
+  .list-item:last-child { border-bottom: none; }
+  .list-item .avatar { width: 36px; height: 36px; background: #C9644230; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #C96442; font-weight: 600; }
+  .list-item .info { flex: 1; }
+  .list-item .info .name { font-size: 14px; font-weight: 500; }
+  .list-item .info .detail { font-size: 11px; color: #B8B0A8; }
+  
+  .input { background: #2C2C2C; border-radius: 4px; padding: 14px 16px; border: 1px solid #383838; font-size: 14px; color: #F5F0EB; }
+  .input::placeholder { color: #6B6B6B; }
+  
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border-radius: 4px; font-weight: 600; font-size: 16px; cursor: default; }
+  .btn-primary { background: #C96442; color: white; }
+  .btn-outline { background: transparent; border: 1px solid #383838; color: #C96442; }
+  
+  .chat-bubble { max-width: 80%; padding: 12px; border-radius: 12px; font-size: 14px; }
+  .chat-in { background: #2C2C2C; align-self: flex-start; border-bottom-left-radius: 4px; }
+  .chat-out { background: #C96442; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+  
+  .nav { display: flex; justify-content: space-around; padding: 12px; border-top: 1px solid #383838; margin-top: auto; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: #B8B0A8; }
+  .nav-item.active { color: #C96442; }
+  .nav-icon { width: 24px; height: 24px; background: #2C2C2C; border-radius: 6px; }
+  .nav-item.active .nav-icon { background: #C9644240; }
+  
+  .badge { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .badge-green { background: #4CAF50; }
+  .badge-amber { background: #F9A825; }
+  .badge-red { background: #E53935; }
+  
+  .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; background: #2C2C2C; margin-right: 6px; margin-bottom: 6px; }
+  .chip-selected { background: #C9644240; color: #C96442; }
+  
+  .banner { padding: 8px 16px; border-radius: 4px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+  .banner-amber { background: #F9A82530; color: #F9A825; }
+  .banner-green { background: #2E7D3230; color: #4CAF50; }
+</style>
+</head>
+<body>
+<h1>🏪 BusinessOS</h1>
+<p class="subtitle">22 Screens — Flutter UI Blueprint • Dark Theme (default) • 4,239 lines Dart • 0 errors</p>
+
+<div class="grid">
+
+<!-- 1. Morning Briefing -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🏠 Morning Briefing</span><span class="count">Home</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><div class="icon"></div><span class="title-text">Good Morning</span></div><div class="icon"></div></div>
+    <div style="color:#B8B0A8;font-size:13px;">Here's your business summary for today</div>
+    <div class="card">
+      <div style="color:#B8B0A8;font-size:12px;margin-bottom:4px;">Yesterday</div>
+      <div style="font-size:28px;font-weight:700;">KES 5,200</div>
+      <div style="color:#4CAF50;font-size:12px;">↑ 12% higher</div>
+      <div style="display:flex;gap:24px;margin-top:12px;">
+        <div><div style="font-size:12px;color:#B8B0A8;">Transactions</div><div style="font-size:16px;font-weight:600;">15</div></div>
+        <div><div style="font-size:12px;color:#B8B0A8;">Avg Sale</div><div style="font-size:16px;font-weight:600;">KES 347</div></div>
+      </div>
+    </div>
+    <div style="font-weight:600;font-size:14px;margin-top:4px;">AI Insights</div>
+    <div class="card" style="border-left:3px solid #F9A825;">
+      <div style="font-size:13px;font-weight:500;">⚠️ Cooking oil running low</div>
+      <div style="font-size:12px;color:#B8B0A8;">Only 2L left. Order today?</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span class="pill pill-amber">Pretty sure</span>
+        <span style="color:#C96442;font-size:12px;">Reorder →</span>
+      </div>
+    </div>
+    <div class="card" style="border-left:3px solid #4CAF50;">
+      <div style="font-size:13px;font-weight:500;">3 customers haven't paid</div>
+      <div style="font-size:12px;color:#B8B0A8;">KES 5,500 outstanding</div>
+    </div>
+    <div class="row" style="margin-top:4px;">
+      <div class="col card" style="text-align:center;background:#C9644220;"><div style="font-size:12px;color:#C96442;">🛍️ New Sale</div></div>
+      <div class="col card" style="text-align:center;background:#2A6B6B20;"><div style="font-size:12px;color:#2A6B6B;">📋 Add Stock</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. POS -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🛍️ Point of Sale</span><span class="count">POS</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">POS</span></div><div class="row" style="gap:8px;"><div class="icon"></div><div class="icon"></div></div></div>
+    <div class="input">🔎 Search products</div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;">
+      <span style="font-size:13px;color:#B8B0A8;">Quick picks</span>
+      <span style="font-size:12px;color:#C96442;">View all</span>
+    </div>
+    <div class="product-grid">
+      <div class="product-card"><div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#B8B0A8;font-size:10px;">◆ BESTSELLER</div><div class="name">Chips Masala</div><div class="price">KES 350</div><span class="pill pill-green">● In Stock</span></div>
+      <div class="product-card"><div class="thumb"></div><div class="name">Milk 1L</div><div class="price">KES 150</div><span class="pill pill-amber">● Low</span></div>
+      <div class="product-card"><div class="thumb"></div><div class="name">Soda</div><div class="price">KES 80</div><span class="pill pill-green">● In Stock</span></div>
+    </div>
+    <div class="card" style="margin-top:auto;">
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">Current Sale</span><span style="color:#B8B0A8;">2 items</span></div>
+      <div style="display:flex;justify-content:space-between;margin:8px 0;font-size:13px;"><span>Chips Masala x2</span><span>KES 700</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Milk 1L x1</span><span>KES 150</span></div>
+      <div style="border-top:1px solid #383838;margin:8px 0;"></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-size:18px;font-weight:700;">Total</span><span style="font-size:22px;font-weight:700;color:#C96442;">KES 850</span></div>
+      <div class="btn btn-primary" style="margin-top:12px;">📲 Charge M-Pesa</div>
+      <div class="btn btn-outline" style="margin-top:8px;">💳 Cash</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Inventory List -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📋 Inventory</span><span class="count">Inventory</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">Inventory</span></div><div class="icon"></div></div>
+    <div class="input">🔎 Search products...</div>
+    <div style="margin:8px 0;"><span class="chip chip-selected">All</span><span class="chip">Food</span><span class="chip">Beverages</span><span class="chip">Cleaning</span></div>
+    <div class="list-item"><div class="avatar">C</div><div class="info"><div class="name">Cooking Oil 5L</div><div><span class="pill pill-amber">● Low Stock</span> <span style="font-size:11px;color:#B8B0A8;">2 units</span></div></div><div style="font-weight:600;">KES 650</div></div>
+    <div class="list-item"><div class="avatar">R</div><div class="info"><div class="name">Rice 2kg</div><div><span class="pill pill-green">● In Stock</span> <span style="font-size:11px;color:#B8B0A8;">15 units</span></div></div><div style="font-weight:600;">KES 300</div></div>
+    <div class="list-item"><div class="avatar">M</div><div class="info"><div class="name">Milk 1L</div><div><span class="pill pill-amber">● Low Stock</span> <span style="font-size:11px;color:#B8B0A8;">8 units</span></div></div><div style="font-weight:600;">KES 150</div></div>
+    <div class="list-item"><div class="avatar">S</div><div class="info"><div class="name">Sugar 2kg</div><div><span class="pill pill-green">● In Stock</span> <span style="font-size:11px;color:#B8B0A8;">20 units</span></div></div><div style="font-weight:600;">KES 280</div></div>
+  </div>
+</div>
+
+<!-- 4. Product Detail -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📄 Product Details</span><span class="count">Inventory</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">Details</span></div><div class="icon"></div></div>
+    <div class="card" style="text-align:center;">
+      <div style="width:80px;height:80px;background:#383838;border-radius:8px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px;">📋</div>
+      <div style="font-size:20px;font-weight:700;">Cooking Oil 5L</div>
+      <div style="font-size:26px;font-weight:700;color:#C96442;margin-top:4px;">KES 650</div>
+    </div>
+    <div><span style="color:#B8B0A8;">Category:</span> Food</div>
+    <div><span style="color:#B8B0A8;">Barcode:</span> 8991234567890</div>
+    <div><span style="color:#B8B0A8;">Unit:</span> Pieces</div>
+    <div><span style="color:#B8B0A8;">Cost Price:</span> KES 520</div>
+    <div><span style="color:#B8B0A8;">Margin:</span> 20%</div>
+    <div class="card" style="margin-top:4px;">
+      <div style="font-weight:600;margin-bottom:8px;">Stock</div>
+      <div style="display:flex;justify-content:space-between;"><span>Current</span><span style="color:#F9A825;">2 units</span></div>
+      <div style="display:flex;justify-content:space-between;"><span>Minimum</span><span>5 units</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Status</span><span class="pill pill-amber">Low Stock</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Product Creation -->
+<div class="screen">
+  <div class="screen-header"><span class="title">➕ Add Product</span><span class="count">Inventory</span></div>
+  <div class="screen-body">
+    <div class="card" style="text-align:center;border:2px dashed #383838;">
+      <div style="font-size:36px;margin-bottom:8px;">📸</div>
+      <div style="font-weight:600;">Scan Barcode</div>
+      <div style="font-size:12px;color:#B8B0A8;">Or tap to type manually</div>
+    </div>
+    <div class="input" style="margin-top:8px;">Barcode (auto-filled)</div>
+    <div class="input">Product Name *</div>
+    <div class="input">Price (KES) *</div>
+    <div class="card" style="display:flex;justify-content:space-between;padding:12px 16px;">
+      <span>Category</span><span style="color:#B8B0A8;">Food ▾</span>
+    </div>
+    <div class="btn btn-primary" style="margin-top:auto;">Save Product</div>
+  </div>
+</div>
+
+<!-- 6. Stock Count -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📋 Stock Count</span><span class="count">Inventory</span></div>
+  <div class="screen-body">
+    <div class="card" style="text-align:center;min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="font-size:40px;margin-bottom:8px;">📸</div>
+      <div style="font-weight:500;">Point at shelf to scan</div>
+      <div style="font-size:12px;color:#B8B0A8;margin-top:4px;">0/5 items counted</div>
+    </div>
+  </div>
+</div>
+
+<!-- 7. Suppliers -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🏭 Suppliers</span><span class="count">Inventory</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">Suppliers</span></div><div class="icon"></div></div>
+    <div class="list-item"><div class="avatar" style="background:#2A6B6B30;color:#2A6B6B;">B</div><div class="info"><div class="name">Bidco Kenya</div><div style="font-size:11px;color:#B8B0A8;">Cooking Oil, Soap</div></div><div style="text-align:right;"><div style="font-weight:600;color:#4CAF50;">8/10</div><div style="font-size:10px;color:#B8B0A8;">Score</div></div></div>
+    <div class="list-item"><div class="avatar" style="background:#2A6B6B30;color:#2A6B6B;">B</div><div class="info"><div class="name">Brookside Dairy</div><div style="font-size:11px;color:#B8B0A8;">Milk, Yogurt</div></div><div style="text-align:right;"><div style="font-weight:600;color:#4CAF50;">9/10</div><div style="font-size:10px;color:#B8B0A8;">Score</div></div></div>
+  </div>
+</div>
+
+<!-- 8. Purchase Orders -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📋 Purchase Orders</span><span class="count">Inventory</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">POs</span></div><div class="icon"></div></div>
+    <div style="margin:4px 0;"><span class="chip chip-selected">All</span><span class="chip">Pending</span><span class="chip">Delivered</span></div>
+    <div class="list-item"><div class="info"><div class="name">Bidco Kenya</div><div style="font-size:11px;color:#B8B0A8;">Cooking Oil x10</div></div><span class="pill pill-amber">Pending</span></div>
+    <div class="list-item"><div class="info"><div class="name">Brookside</div><div style="font-size:11px;color:#B8B0A8;">Milk x24</div></div><span class="pill pill-green">Delivered</span></div>
+  </div>
+</div>
+
+<!-- 9. Customers -->
+<div class="screen">
+  <div class="screen-header"><span class="title">👥 Customers</span><span class="count">CRM</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">Customers</span></div><div class="icon"></div></div>
+    <div class="input">🔎 Search customers...</div>
+    <div style="margin:8px 0;"><span class="chip chip-selected">All</span><span class="chip">Has Credit</span><span class="chip">Overdue</span></div>
+    <div class="list-item"><div class="avatar">G</div><div class="info"><div class="name">Grace Wanjiku</div><div style="font-size:11px;color:#B8B0A8;">24 visits • KES 15,000</div></div><span class="pill pill-amber">KES 2,500</span></div>
+    <div class="list-item"><div class="avatar">J</div><div class="info"><div class="name">John Kamau</div><div style="font-size:11px;color:#B8B0A8;">12 visits • KES 8,000</div></div><span class="pill pill-red">KES 5,500</span></div>
+    <div class="list-item"><div class="avatar">A</div><div class="info"><div class="name">Amina Hassan</div><div style="font-size:11px;color:#B8B0A8;">35 visits • KES 22,000</div></div><span class="pill pill-green">KES 0</span></div>
+  </div>
+</div>
+
+<!-- 10. Customer Detail -->
+<div class="screen">
+  <div class="screen-header"><span class="title">👤 Customer Detail</span><span class="count">CRM</span></div>
+  <div class="screen-body">
+    <div class="card" style="text-align:center;">
+      <div style="width:56px;height:56px;background:#C9644230;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#C96442;">G</div>
+      <div style="font-weight:600;font-size:18px;">Grace Wanjiku</div>
+      <div style="font-size:13px;color:#B8B0A8;">+254 712 345 678</div>
+      <div class="row" style="margin-top:12px;justify-content:center;">
+        <div style="text-align:center;color:#C96442;font-size:12px;">📞 Call</div>
+        <div style="text-align:center;color:#C96442;font-size:12px;">💬 WhatsApp</div>
+        <div style="text-align:center;color:#C96442;font-size:12px;">📨 Remind</div>
+      </div>
+    </div>
+    <div class="card" style="font-size:13px;">
+      <div style="display:flex;justify-content:space-between;"><span style="color:#B8B0A8;">Credit Balance</span><span style="color:#F9A825;font-weight:600;">KES 2,500</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#B8B0A8;">Total Visits</span><span>24</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#B8B0A8;">Total Spent</span><span>KES 15,000</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 11. Reports -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📋 Reports</span><span class="count">Analytics</span></div>
+  <div class="screen-body">
+    <div class="row">
+      <div class="stat"><div style="color:#C96442;font-size:12px;">📋</div><div class="value">KES 5,200</div><div class="label">Today</div><span class="pill pill-green">↑ 12%</span></div>
+      <div class="stat"><div style="color:#2A6B6B;font-size:12px;">📆</div><div class="value">KES 28,400</div><div class="label">This Week</div></div>
+      <div class="stat"><div style="color:#4CAF50;font-size:12px;">📋</div><div class="value">KES 112K</div><div class="label">This Month</div></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;">Revenue</span><span style="color:#C96442;font-size:12px;">7d | 30d | 90d</span></div>
+      <div style="height:100px;margin-top:12px;display:flex;align-items:flex-end;gap:6px;">
+        <div style="flex:1;background:#C96442;height:40%;border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;background:#C96442;height:55%;border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;background:#C96442;height:35%;border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;background:#C96442;height:70%;border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;background:#C96442;height:60%;border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;background:#C96442;height:85%;border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;background:#C96442;height:75%;border-radius:4px 4px 0 0;"></div>
+      </div>
+    </div>
+    <div class="list-item"><div style="font-size:20px;">📋</div><div class="info"><div class="name">Top Products</div><div class="detail">Best performers this month</div></div></div>
+    <div class="list-item"><div style="font-size:20px;">👥</div><div class="info"><div class="name">Top Customers</div><div class="detail">Highest spenders</div></div></div>
+  </div>
+</div>
+
+<!-- 12. Daily Summary -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📆 Daily Summary</span><span class="count">Reports</span></div>
+  <div class="screen-body">
+    <div style="color:#B8B0A8;font-size:13px;">Yesterday</div>
+    <div style="font-size:32px;font-weight:700;color:#C96442;">KES 5,200</div>
+    <div style="color:#4CAF50;font-size:13px;">↑ 12% higher than the day before</div>
+    <div class="card" style="margin-top:8px;display:flex;justify-content:space-between;"><span>Transactions</span><span style="font-weight:600;">15</span></div>
+    <div class="card" style="margin-top:4px;display:flex;justify-content:space-between;"><span>Cash</span><span style="font-weight:600;">KES 2,800</span></div>
+    <div class="card" style="margin-top:4px;display:flex;justify-content:space-between;"><span>M-Pesa</span><span style="font-weight:600;">KES 2,400</span></div>
+    <div style="font-weight:600;margin-top:12px;">Top Products</div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:8px;"><span>Chips Masala</span><span>x8 • KES 2,800</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:4px;"><span>Milk 1L</span><span>x5 • KES 750</span></div>
+  </div>
+</div>
+
+<!-- 13. AI Partner Chat -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🤖 AI Business Partner</span><span class="count">AI</span></div>
+  <div class="screen-body" style="gap:8px;">
+    <div class="chat-bubble chat-in">Habari! I'm your AI Business Partner. What would you like to know?</div>
+    <div class="chat-bubble chat-out">How is my business today?</div>
+    <div class="chat-bubble chat-in">Your Business Health Score is 72/100. Revenue is up 15% vs last month!</div>
+    <div style="display:flex;gap:8px;margin-top:auto;">
+      <div class="input" style="flex:1;padding:12px;">Ask me anything...</div>
+      <div style="width:48px;height:48px;background:#C96442;border-radius:8px;display:flex;align-items:center;justify-content:center;">📤</div>
+    </div>
+  </div>
+</div>
+
+<!-- 14. Business Memory -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🧠 Business Memory</span><span class="count">AI</span></div>
+  <div class="screen-body">
+    <div class="banner banner-green">BusinessOS remembers patterns about your business</div>
+    <div style="font-weight:600;margin-top:8px;">Learned Patterns</div>
+    <div class="list-item"><div style="font-size:18px;">🕐</div><div class="info"><div class="name">Peak hours</div><div class="detail">12:00-14:00 weekdays</div></div><span class="pill pill-green">90%</span></div>
+    <div class="list-item"><div style="font-size:18px;">📋</div><div class="info"><div class="name">Top product</div><div class="detail">Chips Masala (25% of revenue)</div></div><span class="pill pill-green">85%</span></div>
+    <div class="list-item"><div style="font-size:18px;">👤</div><div class="info"><div class="name">Customer preference</div><div class="detail">John Kamau prefers credit</div></div><span class="pill pill-amber">80%</span></div>
+    <div style="font-weight:600;margin-top:12px;">Business DNA</div>
+    <div><span>Business Health</span> <span style="float:right;color:#4CAF50;">72/100</span></div>
+    <div><span>Revenue Trend</span> <span style="float:right;color:#4CAF50;">85/100</span></div>
+    <div><span>Stock Efficiency</span> <span style="float:right;color:#F9A825;">45/100</span></div>
+  </div>
+</div>
+
+<!-- 15. Notifications -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🔔 Notifications</span><span class="count">System</span></div>
+  <div class="screen-body">
+    <div class="appbar"><div class="left"><span class="title-text">Notifications</span></div><span style="font-size:12px;color:#C96442;">Mark all read</span></div>
+    <div style="color:#B8B0A8;font-size:13px;font-weight:600;margin:4px 0;">Today</div>
+    <div class="card" style="display:flex;gap:12px;align-items:center;">
+      <div style="background:#F9A82530;padding:8px;border-radius:8px;">⚠️</div>
+      <div style="flex:1;"><div style="font-size:13px;font-weight:500;">Cooking oil running low</div><div style="font-size:12px;color:#B8B0A8;">Only 2L left</div></div>
+      <div style="font-size:11px;color:#B8B0A8;">2h ago</div>
+    </div>
+    <div class="card" style="display:flex;gap:12px;align-items:center;">
+      <div style="background:#4CAF5030;padding:8px;border-radius:8px;">📋</div>
+      <div style="flex:1;"><div style="font-size:13px;font-weight:500;">Good sales day!</div><div style="font-size:12px;color:#B8B0A8;">12% above average</div></div>
+      <div style="font-size:11px;color:#B8B0A8;">10h ago</div>
+    </div>
+  </div>
+</div>
+
+<!-- 16. Settings -->
+<div class="screen">
+  <div class="screen-header"><span class="title">⚙ Settings</span><span class="count">System</span></div>
+  <div class="screen-body">
+    <div class="card" style="display:flex;gap:12px;align-items:center;">
+      <div style="width:48px;height:48px;background:#C9644230;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#C96442;">🏪</div>
+      <div style="flex:1;"><div style="font-weight:600;">Grace's Restaurant</div><div style="font-size:12px;color:#B8B0A8;">Owner • Nairobi</div></div>
+    </div>
+    <div class="list-item"><div style="font-size:18px;">👤</div><div class="info"><div class="name">Profile</div></div></div>
+    <div class="list-item"><div style="font-size:18px;">🔒</div><div class="info"><div class="name">Security</div></div></div>
+    <div class="list-item"><div style="font-size:18px;">👥</div><div class="info"><div class="name">Users & Roles</div></div></div>
+    <div class="list-item"><div style="font-size:18px;">🏢</div><div class="info"><div class="name">Branches</div></div></div>
+  </div>
+</div>
+
+<!-- 17. Security -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🔒 Security</span><span class="count">Settings</span></div>
+  <div class="screen-body">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-weight:500;">Biometric Login</div><div style="font-size:12px;color:#B8B0A8;">Use fingerprint or face</div></div>
+      <div style="width:44px;height:24px;background:#C96442;border-radius:12px;position:relative;"><div style="width:20px;height:20px;background:white;border-radius:50%;position:absolute;right:2px;top:2px;"></div></div>
+    </div>
+    <div class="list-item"><div style="font-size:18px;">🔢</div><div class="info"><div class="name">Change PIN</div></div></div>
+    <div class="list-item"><div style="font-size:18px;">⏱️</div><div class="info"><div class="name">Session Timeout</div></div></div>
+    <div class="list-item"><div style="font-size:18px;">🛡️</div><div class="info"><div class="name">Device Trust</div></div></div>
+  </div>
+</div>
+
+<!-- 18. Auth -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🔑 Login</span><span class="count">Auth</span></div>
+  <div class="screen-body" style="justify-content:center;align-items:center;text-align:center;">
+    <div style="font-size:56px;margin-bottom:16px;">🏪</div>
+    <div style="font-size:24px;font-weight:700;">BusinessOS</div>
+    <div style="color:#B8B0A8;margin-bottom:32px;">Welcome back</div>
+    <div class="btn btn-primary" style="width:100%;">📲 Login with Phone Number</div>
+  </div>
+</div>
+
+<!-- 19. More (Hub) -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📌 More</span><span class="count">Nav</span></div>
+  <div class="screen-body">
+    <div style="color:#B8B0A8;font-size:13px;font-weight:600;">Business</div>
+    <div class="list-item"><div style="font-size:18px;">📋</div><div class="info"><div class="name">Reports</div><div class="detail">Revenue, P&L, charts</div></div></div>
+    <div class="list-item"><div style="font-size:18px;">👥</div><div class="info"><div class="name">Customers</div><div class="detail">Manage credit</div></div></div>
+    <div style="color:#B8B0A8;font-size:13px;font-weight:600;margin-top:12px;">AI & Insights</div>
+    <div class="list-item"><div style="font-size:18px;">🤖</div><div class="info"><div class="name">AI Partner</div><div class="detail">Ask about your business</div></div></div>
+    <div style="color:#B8B0A8;font-size:13px;font-weight:600;margin-top:12px;">System</div>
+    <div class="list-item"><div style="font-size:18px;">⚙</div><div class="info"><div class="name">Settings</div><div class="detail">Profile, preferences</div></div></div>
+  </div>
+</div>
+
+<!-- 20. Payments -->
+<div class="screen">
+  <div class="screen-header"><span class="title">💳 Payments</span><span class="count">Finance</span></div>
+  <div class="screen-body">
+    <div class="row">
+      <div class="stat"><div class="value" style="font-size:16px;">KES 3,200</div><div class="label">Today</div></div>
+      <div class="stat"><div class="value" style="font-size:16px;">KES 18,400</div><div class="label">This Week</div></div>
+    </div>
+    <div class="btn btn-primary" style="margin-top:8px;">📲 Pay with M-Pesa</div>
+    <div class="btn btn-outline" style="margin-top:8px;">💳 Record Cash Payment</div>
+    <div style="display:flex;justify-content:space-between;margin-top:16px;">
+      <span style="font-weight:600;">Recent Payments</span>
+      <span style="color:#C96442;font-size:12px;">View All</span>
+    </div>
+    <div class="list-item"><div style="font-size:18px;">📲</div><div class="info"><div class="name">M-Pesa</div><div class="detail">MOCK123ABC</div></div><div style="font-weight:600;">KES 500</div></div>
+    <div class="list-item"><div style="font-size:18px;">💳</div><div class="info"><div class="name">Cash</div><div class="detail">Manual entry</div></div><div style="font-weight:600;">KES 280</div></div>
+  </div>
+</div>
+
+<!-- 21. eTIMS -->
+<div class="screen">
+  <div class="screen-header"><span class="title">📜 eTIMS Invoices</span><span class="count">Compliance</span></div>
+  <div class="screen-body">
+    <div class="banner banner-green">✅ KRA Integration Active</div>
+    <div class="row" style="margin-top:8px;">
+      <div class="stat"><div class="value">12</div><div class="label">Today</div></div>
+      <div class="stat"><div class="value">68</div><div class="label">This Week</div></div>
+      <div class="stat"><div class="value">0</div><div class="label">Queued</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:12px;">
+      <span style="font-weight:600;">Recent Invoices</span>
+      <span style="color:#C96442;font-size:12px;">+ New Invoice</span>
+    </div>
+    <div class="list-item"><div class="info"><div class="name">INV-2024-001</div><div class="detail">Grace Wanjiku • KES 780</div></div><span class="pill pill-green">Submitted</span></div>
+    <div class="list-item"><div class="info"><div class="name">INV-2024-002</div><div class="detail">John Kamau • KES 250</div></div><span class="pill pill-green">Submitted</span></div>
+  </div>
+</div>
+
+<!-- 22. Search -->
+<div class="screen">
+  <div class="screen-header"><span class="title">🔎 Search</span><span class="count">Global</span></div>
+  <div class="screen-body">
+    <div class="input">🔎 Search products, customers, sales...</div>
+    <div style="margin:8px 0;"><span class="chip chip-selected">All</span><span class="chip">Products</span><span class="chip">Customers</span></div>
+    <div style="color:#B8B0A8;font-size:13px;font-weight:600;margin:4px 0;">Products (3)</div>
+    <div class="list-item"><div style="font-size:18px;">📋</div><div class="info"><div class="name">Milk 1L</div><div class="detail">KES 150 • 8 in stock</div></div></div>
+    <div style="color:#B8B0A8;font-size:13px;font-weight:600;margin:4px 0;">Customers (1)</div>
+    <div class="list-item"><div style="font-size:18px;">👤</div><div class="info"><div class="name">Milkman Supplies</div><div class="detail">+254 712 345 678</div></div></div>
+  </div>
+</div>
+
+</div>
+
+<div class="nav" style="position:fixed;bottom:0;left:0;right:0;background:#1E1E1E;z-index:100;">
+  <div class="nav-item active"><div class="nav-icon"></div>Home</div>
+  <div class="nav-item"><div class="nav-icon"></div>POS</div>
+  <div class="nav-item"><div class="nav-icon"></div>Inventory</div>
+  <div class="nav-item"><div class="nav-icon"></div>More</div>
+</div>
+
+<div style="height:80px;"></div>
+</body>
+</html>

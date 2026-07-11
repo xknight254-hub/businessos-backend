@@ -1,8 +1,12 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.logging import get_logger, new_correlation_id
+from app.core.exceptions import register_exception_handlers
+
+logger = get_logger("businessos.main")
 
 
 @asynccontextmanager
@@ -11,7 +15,9 @@ async def lifespan(app: FastAPI):
         import sentry_sdk
         sentry_sdk.init(dsn=getattr(settings, "SENTRY_DSN", ""))
     await init_db()
+    logger.info("startup", extra={"environment": settings.ENVIRONMENT, "version": settings.VERSION})
     yield
+    logger.info("shutdown")
 
 
 app = FastAPI(
@@ -20,6 +26,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def correlation_middleware(request: Request, call_next):
+    request.state.correlation_id = new_correlation_id()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request.state.correlation_id
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,6 +42,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+register_exception_handlers(app)
 
 
 from app.api.auth.routes import router as auth_router

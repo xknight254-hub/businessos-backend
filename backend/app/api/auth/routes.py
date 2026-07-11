@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import hash_pin, verify_pin, create_access_token, create_refresh_token, decode_token
+from app.core.exceptions import ConflictError, BusinessError
+from app.core.logging import get_logger
 from app.models import Business, User
 from app.schemas.auth import (
     PhoneAuthRequest, VerifyCodeRequest, PinSetupRequest,
@@ -10,6 +12,8 @@ from app.schemas.auth import (
 )
 from app.api.auth.dependencies import get_current_user
 import random
+
+logger = get_logger("businessos.auth")
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -21,7 +25,7 @@ _sms_codes: dict = {}
 async def send_code(req: PhoneAuthRequest):
     code = str(random.randint(100000, 999999))
     _sms_codes[req.phone] = code
-    print(f"[DEV] SMS code for {req.phone}: {code}")
+    logger.info("sms_code_issued", extra={"phone": req.phone})
     return {"message": "Code sent", "expires_in": 300}
 
 
@@ -29,7 +33,7 @@ async def send_code(req: PhoneAuthRequest):
 async def verify_code(req: VerifyCodeRequest):
     stored = _sms_codes.get(req.phone)
     if not stored or stored != req.code:
-        raise HTTPException(status_code=400, detail="Invalid or expired code")
+        raise BusinessError("Invalid or expired code", code="invalid_code", status_code=400)
     del _sms_codes[req.phone]
     return {"message": "Phone verified", "phone": req.phone}
 
@@ -39,7 +43,7 @@ async def register(req: PinSetupRequest, db: AsyncSession = Depends(get_db)):
     # Check if phone already exists
     result = await db.execute(select(Business).where(Business.phone == req.phone))
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Phone already registered")
+        raise ConflictError("Phone already registered")
     
     # Create business
     business = Business(name=req.business_name, type=req.business_type, phone=req.phone)
