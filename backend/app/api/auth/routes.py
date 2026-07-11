@@ -101,18 +101,33 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(req: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    from app.core.token_store import get_token_store
     payload = decode_token(req.refresh_token)
     if not payload or "sub" not in payload:
         raise UnauthorizedError("Invalid refresh token")
-    
+    if payload.get("type") != "refresh":
+        raise UnauthorizedError("Not a refresh token")
+    # M2.4: reject already-revoked (replayed/rotated) refresh tokens.
+    store = await get_token_store()
+    old_jti = payload.get("jti")
+    if old_jti and await store.is_revoked(old_jti):
+        raise UnauthorizedError("Refresh token has been revoked")
+
     result = await db.execute(select(User).where(User.id == payload["sub"]))
     user = result.scalar_one_or_none()
     if not user:
         raise UnauthorizedError("User not found")
-    
+
+    # Rotate: revoke the old refresh token so replay is rejected.
+    if old_jti:
+        import time
+        exp = payload.get("exp")
+        ttl = max(1, int(exp - time.time())) if exp else int(settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+        await store.revoke(old_jti, ttl)
+
     access = create_access_token({"sub": user.id, "business_id": user.business_id, "role": user.role})
     refresh = create_refresh_token({"sub": user.id})
-    
+
     return TokenResponse(
         access_token=access,
         refresh_token=refresh,

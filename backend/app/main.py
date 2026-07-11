@@ -8,6 +8,7 @@ from app.core.logging import get_logger, new_correlation_id
 from app.core.exceptions import register_exception_handlers
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.core.audit import audit_middleware
+from app.core.ratelimit import RateLimitMiddleware
 
 logger = get_logger("businessos.main")
 
@@ -49,6 +50,7 @@ app.add_middleware(
 register_exception_handlers(app)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(BaseHTTPMiddleware, dispatch=audit_middleware)
+app.add_middleware(RateLimitMiddleware)
 
 
 from app.api.auth.routes import router as auth_router

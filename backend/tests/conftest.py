@@ -30,3 +30,16 @@ async def setup_db():
     # Clean up test.db
     if os.path.exists("./test.db"):
         os.remove("./test.db")
+
+
+@pytest.fixture(autouse=True)
+def _reset_global_stores():
+    # Rate-limit and token stores are process-global singletons. Reset before
+    # each test so rate-limit counters and revoked jtis don't bleed across tests.
+    import app.core.ratelimit as rl
+    import app.core.token_store as ts
+    rl._store = None
+    ts._store = None
+    yield
+    rl._store = None
+    ts._store = None

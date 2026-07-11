@@ -42,8 +42,8 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 |----|-----------|--------------|-----------|
 | M2.1 | RBAC | `permissions.py` per module; role decorator/dependency | Endpoints enforce role; 403 on violation | ✅ done (rolled out to all mutating routes) |
 | M2.2 | Audit logs | `AuditLog` model + middleware capturing mutating actions | Every write is auditable | ✅ done |
-| M2.3 | Rate limiting | Redis-backed limiter (e.g. slowapi) on auth + public routes | Limits enforced; 429 returned | 🟡 planned |
-| M2.4 | JWT refresh rotation | Refresh-token rotation + revocation store | Replay of rotated refresh token rejected | 🟡 planned |
+| M2.3 | Rate limiting | Memory/Redis adapter limiter on auth + payments | 429 on abuse; no bypass | ✅ done (auto-selects Redis, memory fallback) |
+| M2.4 | JWT refresh rotation | `jti` + revocation store; rotate+revoke on refresh | Replay of rotated token rejected | ✅ done (auto-selects Redis, memory fallback) |
 | M2.5 | Security headers | Helmet-style middleware (HSTS, CSP, X-Content-Type-Options) | Headers present on all responses | ✅ done |
 | M2.6 | Secrets management | No secrets in code/env files; loaded from secret store/env only | `.env` gitignored; scan clean | 🟡 planned |
 
