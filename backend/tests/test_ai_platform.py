@@ -6,7 +6,8 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.services.model_router import model_router, CostTier
 from app.services.document_processing import (
-    UnconfiguredProcessor, get_document_processor,
+    UnconfiguredProcessor, get_document_processor, set_document_processor,
+    DocumentProcessor,
 )
 
 
@@ -17,6 +18,8 @@ def test_model_router_resolves_tier():
 
 
 def test_ocr_unconfigured_returns_501():
+    saved = get_document_processor()
+    set_document_processor(UnconfiguredProcessor())
     async def _run():
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -30,16 +33,48 @@ def test_ocr_unconfigured_returns_501():
             })
             tok = reg.json()["access_token"]
             c.headers = {"Authorization": f"Bearer {tok}"}
-            fake = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
             from io import BytesIO
             resp = await c.post(
                 "/ai/ocr",
-                files={"file": ("doc.png", BytesIO(fake), "image/png")},
+                files={"file": ("doc.png", BytesIO(b"\x89PNG\r\n\x1a\n" + b"\x00" * 20), "image/png")},
             )
             return resp.status_code
     import asyncio
     code = asyncio.get_event_loop().run_until_complete(_run())
+    set_document_processor(saved)
     assert code == 501
+
+
+def test_ocr_configured_returns_text():
+    class FakeDoc(DocumentProcessor):
+        async def ocr(self, file_bytes, content_type):
+            return {"text": "Ksh 850.00", "fields": {}, "confidence": 0.9}
+    saved = get_document_processor()
+    set_document_processor(FakeDoc())
+    async def _run():
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            await c.post("/auth/send-code", json={"phone": "+254****4003"})
+            from app.api.auth.routes import _sms_codes
+            code = _sms_codes.get("+254****4003")
+            await c.post("/auth/verify-code", json={"phone": "+254****4003", "code": code})
+            reg = await c.post("/auth/register", json={
+                "phone": "+254****4003", "pin": "1234",
+                "business_name": "OCR Test2", "business_type": "retail",
+            })
+            tok = reg.json()["access_token"]
+            c.headers = {"Authorization": f"Bearer {tok}"}
+            from io import BytesIO
+            resp = await c.post(
+                "/ai/ocr",
+                files={"file": ("doc.png", BytesIO(b"\x89PNG\r\n\x1a\n" + b"\x00" * 20), "image/png")},
+            )
+            return resp.status_code, resp.json()
+    import asyncio
+    code, body = asyncio.get_event_loop().run_until_complete(_run())
+    set_document_processor(saved)
+    assert code == 200
+    assert body["text"] == "Ksh 850.00" and body["confidence"] == 0.9
 
 
 def test_voice_unconfigured_returns_501():

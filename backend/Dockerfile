@@ -18,10 +18,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     APP_HOME=/app
 
-# runtime deps for psycopg2-binary / cryptography / bcrypt
+# runtime deps for psycopg2-binary / cryptography / bcrypt + tesseract OCR
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        curl ca-certificates \
+        curl ca-certificates tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
