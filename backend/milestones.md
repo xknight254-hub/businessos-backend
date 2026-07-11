@@ -1,0 +1,139 @@
+# BusinessOS Backend — Milestones
+
+Engineering roadmap derived from `BusinessOS_Backend_Engineering_Blueprint.md`.
+Tracking instrument for the AI-native, Kenya-first ERP backend.
+
+**Stack:** FastAPI + PostgreSQL · Celery + Redis · domain-driven modules.
+**Operating rules (from blueprint):** analyze → estimate blast radius → plan → implement incrementally → test after every change → never break public APIs → document decisions → leave code cleaner.
+**Definition of Done (per item):** tests pass · lint passes · docs updated · logging added · errors handled · security reviewed · performance considered · no regressions.
+
+**Status legend:** ⬜ Planned · 🔵 In progress · ✅ Done
+
+---
+
+## Baseline (observed at doc authoring)
+
+Backend already has a domain-folded `app/` layout (`ai`, `customers`, `inventory`,
+`payments`, `products`, `reports`, `sales`, `suppliers`, `notifications`, `etims`)
+with `services/`, `schemas/`, `models/`, `core/`, `tasks/`, `tests/`. This matches
+the *spirit* of Phase 3 but not the strict per-module file pattern
+(`router/service/repository/schemas/models/permissions/tasks/events/tests`).
+Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
+
+---
+
+## Phase 1 — Foundation
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M1.1 | Structured logging | `core/logging.py`: JSON/leveled logger, request/correlation IDs, no secrets in logs | All modules emit structured logs; PII redacted |
+| M1.2 | Centralized exception handling | `core/exceptions.py` + global handler in `main.py`; typed error responses | Unhandled errors return uniform schema; no stack traces leaked |
+| M1.3 | Typed configuration | `core/config.py` (pydantic-settings): env-driven, validated at boot | Missing/again invalid config fails fast at startup |
+| M1.4 | Service-layer validation | Validation moved out of routers into services; routers stay thin | Routers delegate; services reject invalid input with typed errors |
+
+**Phase 1 exit:** logging + exceptions + config + validation consistent across all `app/` modules.
+
+---
+
+## Phase 2 — Security
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M2.1 | RBAC | `permissions.py` per module; role decorator/dependency | Endpoints enforce role; 403 on violation |
+| M2.2 | Audit logs | `AuditLog` model + middleware capturing mutating actions | Every write is auditable |
+| M2.3 | Rate limiting | Redis-backed limiter (e.g. slowapi) on auth + public routes | Limits enforced; 429 returned |
+| M2.4 | JWT refresh rotation | Refresh-token rotation + revocation store | Replay of rotated refresh token rejected |
+| M2.5 | Security headers | Helmet-style middleware (HSTS, CSP, X-Content-Type-Options) | Headers present on all responses |
+| M2.6 | Secrets management | No secrets in code/env files; loaded from secret store/env only | `.env` gitignored; scan clean |
+
+---
+
+## Phase 3 — Modularization
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M3.1 | Module file convention | Each domain folder has `router/service/repository/schemas/models/permissions/tasks/events/tests` | All 12 modules conform |
+| M3.2 | Repository layer | DB access isolated to `repository.py`; services depend on repos not sessions | No raw SQL/session use outside repos |
+| M3.3 | Modules: auth, crm, inventory, sales, procurement, accounting, payroll, hr, analytics, ai, automation, notifications | Full module skeleton per convention | Each module independently testable |
+
+---
+
+## Phase 4 — Event Driven
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M4.1 | Event bus | Redis/Celery event publisher + subscriber | Events emitted/received reliably |
+| M4.2 | Core events | `CustomerCreated`, `InvoiceCreated`, `PaymentReceived`, `InventoryAdjusted`, `WorkflowCompleted` | Each emitted on its trigger |
+| M4.3 | Handlers | Side-effect handlers wired to events (e.g. notify on PaymentReceived) | Handlers idempotent; tested |
+
+---
+
+## Phase 5 — AI Platform
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M5.1 | OCR | Document/invoice OCR endpoint | Returns structured fields |
+| M5.2 | Voice bookkeeping | Speech-to-entry pipeline | Voice → ledger entry |
+| M5.3 | Forecasting | Demand/revenue forecast service | Returns predictions + confidence |
+| M5.4 | Business insights | Insight generator over domain data | Actionable insights API |
+| M5.5 | Prompt management | Versioned prompt store | Prompts editable/tracked |
+| M5.6 | Model routing | Router across providers/models | Cost/latency-aware selection |
+
+---
+
+## Phase 6 — Kenya Integrations
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M6.1 | M-Pesa | STK push + callback + query (Daraja) | End-to-end payment verified |
+| M6.2 | eTIMS | Invoice submission to KRA eTIMS | Fiscal docs accepted |
+| M6.3 | KRA | Tax/compliance touchpoints | Validated against sandbox |
+| M6.4 | WhatsApp | Business API messaging | Template + session msgs |
+| M6.5 | SMS | Provider integration (e.g. Africa's Talking) | OTP/notify delivered |
+| M6.6 | POS | Terminal/device sync | Offline-tolerant |
+| M6.7 | Offline sync | Conflict resolution for field use | Sync converges |
+
+---
+
+## Phase 7 — Infrastructure
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M7.1 | Docker | Multi-stage Dockerfile + compose (api, worker, redis, db) | One-command local stack |
+| M7.2 | GitHub Actions | CI: lint + test + build on PR | Green pipeline |
+| M7.3 | Prometheus | Metrics endpoints + scrape config | Metrics exposed |
+| M7.4 | Grafana | Dashboards for API/worker health | Dashboards live |
+| M7.5 | OpenTelemetry | Traces across request/worker | Trace waterfall visible |
+| M7.6 | Sentry | Error tracking wired | Errors surfaced |
+
+---
+
+## Phase 8 — Testing
+
+| ID | Milestone | Deliverables | Done when |
+|----|-----------|--------------|-----------|
+| M8.1 | Unit | Per-module unit tests (services/repos) | Coverage tracked |
+| M8.2 | Integration | API + DB integration suites | Run in CI |
+| M8.3 | API | Contract tests per endpoint | Public APIs locked |
+| M8.4 | Regression | Suite guarding past fixes | No known bug recurs |
+| M8.5 | Load | Benchmark on hot paths | p95 latency known |
+| M8.6 | Security | Authz/fuzz tests | >90% business-logic coverage target |
+
+**Final gate:** >90% business-logic coverage; all Definition-of-Done checks green.
+
+---
+
+## Dependency order
+
+```
+Phase 1 (Foundation) ──▶ Phase 2 (Security) ──▶ Phase 3 (Modularization)
+                                                        │
+                                                        ▼
+                              Phase 4 (Event Driven) ──▶ Phase 5 (AI) ──▶ Phase 6 (Kenya)
+                                                        │
+                                        Phase 7 (Infra) ◀── runs parallel from Phase 3+
+                                                        │
+                                        Phase 8 (Testing) ◀── continuous from Phase 1
+```
+
+Phases 7 and 8 run **continuously** alongside 1–6, not as a final gate.
