@@ -122,7 +122,50 @@ class OmnirouteGateway:
                 f"Omniroute returned {resp.status_code}: {resp.text[:300]}"
             )
 
-        data = resp.json()
+        return self._parse_response(resp.text, model)
+
+    @staticmethod
+    def _parse_response(text: str, model: str) -> "ChatResult":
+        """Handle both SSE streams and plain JSON (OpenAI-compatible).
+
+        Omniroute streams Server-Sent Events (`data: {...}` chunks). We
+        accumulate `choices[].delta.content` and read `model`/`usage` from
+        the first event that carries them. If no `data:` lines are present,
+        fall back to a single JSON object.
+        """
+        chunks: list[str] = []
+        model_out = model
+        usage: dict = {}
+        for line in text.splitlines():
+            line = line.strip()
+            if not line.startswith("data:"):
+                continue
+            data_str = line[len("data:") :].strip()
+            if data_str == "[DONE]":
+                continue
+            try:
+                evt = json.loads(data_str)
+            except json.JSONDecodeError:
+                continue
+            if evt.get("model"):
+                model_out = evt["model"]
+            if evt.get("usage"):
+                usage = evt["usage"]
+            try:
+                delta = evt["choices"][0]["delta"].get("content") or ""
+            except (KeyError, IndexError, TypeError):
+                delta = ""
+            if delta:
+                chunks.append(delta)
+        if chunks:
+            return ChatResult(
+                content="".join(chunks), model=model_out, raw={}, usage=usage
+            )
+        # Fallback: single JSON object
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            raise GatewayError(f"Unexpected gateway response shape: {text[:300]}") from e
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as e:

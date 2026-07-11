@@ -1,4 +1,5 @@
 """Omniroute gateway — offline contract tests (no network)."""
+import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
@@ -18,11 +19,11 @@ def test_missing_key_raises_configuration_error(monkeypatch):
 def test_chat_parses_openai_shape(monkeypatch):
     fake = MagicMock()
     fake.status_code = 200
-    fake.json.return_value = {
+    fake.text = json.dumps({
         "model": "gpt-4o-mini",
         "choices": [{"message": {"content": "hello"}}],
         "usage": {"total_tokens": 12},
-    }
+    })
     fake_post = AsyncMock(return_value=fake)
     gw = OmnirouteGateway(api_key="sk-test", base_url="https://x/v1")
     monkeypatch.setattr(gw, "_client_", lambda: MagicMock(post=fake_post))
@@ -55,9 +56,9 @@ def test_chat_non_200_raises_gateway_error(monkeypatch):
 def test_chat_json_parses_valid_json(monkeypatch):
     fake = MagicMock()
     fake.status_code = 200
-    fake.json.return_value = {
+    fake.text = json.dumps({
         "choices": [{"message": {"content": '{"ok": true}'}}],
-    }
+    })
     fake_post = AsyncMock(return_value=fake)
     gw = OmnirouteGateway(api_key="sk-test", base_url="https://x/v1")
     monkeypatch.setattr(gw, "_client_", lambda: MagicMock(post=fake_post))
@@ -67,3 +68,31 @@ def test_chat_json_parses_valid_json(monkeypatch):
         gw.chat_json([ChatMessage(role="user", content="hi")])
     )
     assert out == {"ok": True}
+
+
+SSE_BODY = (
+    'OPENROUTER PROCESSING\n\n'
+    'data: {"id":"gen-1","object":"chat.completion.chunk","model":"openai/gpt-4o-mini",'
+    '"choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}\n\n'
+    'data: {"id":"gen-1","model":"openai/gpt-4o-mini",'
+    '"choices":[{"index":0,"delta":{"content":" world"},"finish_reason":"stop"}],'
+    '"usage":{"total_tokens":9}}\n\n'
+    'data: [DONE]\n'
+)
+
+
+def test_chat_parses_sse_stream(monkeypatch):
+    fake = MagicMock()
+    fake.status_code = 200
+    fake.text = SSE_BODY
+    fake_post = AsyncMock(return_value=fake)
+    gw = OmnirouteGateway(api_key="sk-test", base_url="https://x/v1")
+    monkeypatch.setattr(gw, "_client_", lambda: MagicMock(post=fake_post))
+
+    import asyncio
+    res = asyncio.get_event_loop().run_until_complete(
+        gw.chat([ChatMessage(role="user", content="hi")], model="gpt-4o-mini")
+    )
+    assert res.content == "Hello world"
+    assert res.model == "openai/gpt-4o-mini"
+    assert res.tokens == 9

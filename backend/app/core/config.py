@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # Omniroute AI model gateway (OpenAI-compatible /v1/chat/completions)
     OMNIROUTE_API_KEY: Optional[str] = None
-    OMNIROUTE_BASE_URL: str = "https://api.omniroute.com/v1"
+    OMNIROUTE_BASE_URL: str = "http://178.105.198.217:20128/api/v1"
 
     # WhatsApp
     WHATSAPP_API_TOKEN: Optional[str] = None
