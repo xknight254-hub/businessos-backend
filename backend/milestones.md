@@ -45,7 +45,7 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 | M2.3 | Rate limiting | Memory/Redis adapter limiter on auth + payments | 429 on abuse; no bypass | ✅ done (auto-selects Redis, memory fallback) |
 | M2.4 | JWT refresh rotation | `jti` + revocation store; rotate+revoke on refresh | Replay of rotated token rejected | ✅ done (auto-selects Redis, memory fallback) |
 | M2.5 | Security headers | Helmet-style middleware (HSTS, CSP, X-Content-Type-Options) | Headers present on all responses | ✅ done |
-| M2.6 | Secrets management | No secrets in code/env files; loaded from secret store/env only | `.env` gitignored; scan clean | 🟡 planned |
+| M2.6 | Secrets management | `.env` gitignored; static guard `scripts/check_secrets.py` | `.env` not tracked; scan clean; 2 tests | ✅ done |
 
 ---
 

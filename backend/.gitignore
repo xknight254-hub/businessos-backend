@@ -1,3 +1,8 @@
 
 # Nested mobile app is its own repo
 mobile/
+
+# Secrets — never commit real .env files
+.env
+.env.*
+!.env.example
