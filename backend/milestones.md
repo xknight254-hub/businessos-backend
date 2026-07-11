@@ -40,7 +40,7 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
-| M2.1 | RBAC | `permissions.py` per module; role decorator/dependency | Endpoints enforce role; 403 on violation | 🟡 planned |
+| M2.1 | RBAC | `permissions.py` per module; role decorator/dependency | Endpoints enforce role; 403 on violation | ✅ done |
 | M2.2 | Audit logs | `AuditLog` model + middleware capturing mutating actions | Every write is auditable | ✅ done |
 | M2.3 | Rate limiting | Redis-backed limiter (e.g. slowapi) on auth + public routes | Limits enforced; 429 returned | 🟡 planned |
 | M2.4 | JWT refresh rotation | Refresh-token rotation + revocation store | Replay of rotated refresh token rejected | 🟡 planned |

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
+from app.core.rbac import require_permission
 from app.models import Product, InventoryBatch
 from app.schemas.products import (
     ProductCreate, ProductUpdate, ProductResponse,
@@ -167,7 +168,7 @@ async def update_product(
 async def delete_product(
     product_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("product:delete")),
 ):
     result = await db.execute(
         select(Product).where(
