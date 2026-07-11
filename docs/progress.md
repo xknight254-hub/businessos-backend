@@ -25,8 +25,7 @@ _Last updated: 2026-07-11_
 
 ## Open Items
 
-1. **M-Pesa callback/query bug** — `app/modules/accounting/router.py:86` overwrites `payment.reference` with the M-Pesa receipt, but `:120` queries by `checkout_request_id` (the original reference). After a successful callback, `/mpesa/query/{checkout_request_id}` can't locate the payment. Fix: add `mpesa_receipt` column, keep `reference` as checkout ID. (Flagged by OpenCode Phase 8 run; not yet fixed.)
-2. **Voice (M5.2)** — `/ai/voice/transcribe` is engine-gated (501 until a Whisper/`faster-whisper` processor is registered + wired).
+1. **Voice (M5.2)** — `/ai/voice/transcribe` is engine-gated (501 until a Whisper/`faster-whisper` processor is registered + wired).
 3. **Phase 6 Kenya Integrations** — M6.1/M6.4/M6.5 done (M-Pesa, WhatsApp, SMS). eTIMS/KRA need KRA sandbox creds; POS/offline-sync need hardware/design.
 4. **SQLite → Postgres data migration** — the old `businessos_preview.db` was backed up (`backend/businessos_preview.db.bak-20260711-175306`) but its rows were NOT migrated into Postgres (the preview DB had no business data of value; fresh register confirmed working). If legacy rows are needed, a one-off ETL is required.
 5. **CI secret handling** — `.github/workflows/ci.yml` uses `SECRET_KEY: ci-secret` and empty Omniroute key (tests run on SQLite, so AI live calls are skipped).
