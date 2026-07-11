@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
@@ -319,3 +319,26 @@ class Notification(Base):
     payload = Column(Text, nullable=True)  # JSON
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=utcnow)
+
+
+# ---------- AI Prompts (M5.5) ----------
+
+class Prompt(Base):
+    """Versioned prompt templates, editable and tracked per business."""
+    __tablename__ = "prompts"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    business_id = Column(String, ForeignKey("businesses.id"), nullable=False, index=True)
+    key = Column(String(100), nullable=False)  # e.g. "sales_insight"
+    version = Column(Integer, default=1, nullable=False)
+    title = Column(String(255), nullable=False)
+    template = Column(Text, nullable=False)  # supports {placeholders}
+    model = Column(String(100), nullable=False, default="gpt-4o-mini")
+    task = Column(String(50), nullable=False, default="insight")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        # one active prompt per key per business
+        Index("ix_prompts_business_key_active", "business_id", "key", "is_active"),
+    )

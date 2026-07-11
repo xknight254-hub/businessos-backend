@@ -73,13 +73,13 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
-| M5.0 | AI model gateway | Omniroute (OpenAI-compatible) gateway client + config + `/ai/chat` endpoint + LLM service | `chat`/`structured` callable; offline contract tests pass |
-| M5.1 | OCR | Document/invoice OCR endpoint | Returns structured fields |
-| M5.2 | Voice bookkeeping | Speech-to-entry pipeline | Voice → ledger entry |
-| M5.3 | Forecasting | Demand/revenue forecast service | Returns predictions + confidence |
-| M5.4 | Business insights | Insight generator over domain data | Actionable insights API |
-| M5.5 | Prompt management | Versioned prompt store | Prompts editable/tracked |
-| M5.6 | Model routing | Router across providers/models | Cost/latency-aware selection |
+| M5.0 | AI model gateway | Omniroute (OpenAI-compatible) gateway client + config + `/ai/chat` endpoint + LLM service | `chat`/`structured` callable; offline + live SSE verified |
+| M5.1 | OCR | Document/invoice OCR endpoint | Endpoint live; returns 501 until OCR engine (Tesseract/EasyOCR) wired |
+| M5.2 | Voice bookkeeping | Speech-to-entry pipeline | Endpoint live; returns 501 until STT engine (Whisper) wired |
+| M5.3 | Forecasting | Demand/revenue forecast service | `POST /ai/forecast` (engine predictions + LLM narrative) |
+| M5.4 | Business insights | Insight generator over domain data | `POST /ai/insights/generate` (LLM over ObservationEngine) |
+| M5.5 | Prompt management | Versioned prompt store | `POST /ai/prompts`, `GET /ai/prompts`; DB-backed, versioned |
+| M5.6 | Model routing | Router across providers/models | `GET /ai/models/routes`; task→model + cost tiers |
 
 ---
 
