@@ -24,14 +24,15 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 ## Phase 1 — Foundation
 
-| ID | Milestone | Deliverables | Done when |
-|----|-----------|--------------|-----------|
-| M1.1 | Structured logging | `core/logging.py`: JSON/leveled logger, request/correlation IDs, no secrets in logs | All modules emit structured logs; PII redacted |
-| M1.2 | Centralized exception handling | `core/exceptions.py` + global handler in `main.py`; typed error responses | Unhandled errors return uniform schema; no stack traces leaked |
-| M1.3 | Typed configuration | `core/config.py` (pydantic-settings): env-driven, validated at boot | Missing/again invalid config fails fast at startup |
-| M1.4 | Service-layer validation | Validation moved out of routers into services; routers stay thin | Routers delegate; services reject invalid input with typed errors |
+| ID | Milestone | Deliverables | Done when | Status |
+|----|-----------|--------------|-----------|--------|
+| M1.1 | Structured logging | `core/logging.py`: JSON/leveled logger, request/correlation IDs, no secrets in logs | All modules emit structured logs; PII redacted | ✅ done |
+| M1.2 | Centralized exception handling | `core/exceptions.py` + global handler in `main.py`; typed error responses | Unhandled errors return uniform schema; no stack traces leaked | ✅ done |
+| M1.3 | Typed configuration | `core/config.py` (pydantic-settings): env-driven, validated at boot | Missing/invalid config fails fast at startup | ✅ done |
+| M1.4 | Service-layer validation | Validation moved out of routers into services; routers stay thin | Routers delegate; services reject invalid input with typed errors | 🟡 partial (auth router done; full per-module sweep ongoing) |
 
 **Phase 1 exit:** logging + exceptions + config + validation consistent across all `app/` modules.
+- *Progress (2026-07-11):* M1.1–M1.3 complete and committed (`d6a84c6`). M1.4 applied to `auth` router (typed `BusinessError`/`ConflictError` + structured logging); remaining modules (products, sales, payments, customers) to follow. 69 tests passing.
 
 ---
 
