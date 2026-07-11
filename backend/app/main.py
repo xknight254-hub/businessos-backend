@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.logging import get_logger, new_correlation_id
 from app.core.exceptions import register_exception_handlers
+from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.audit import audit_middleware
 
 logger = get_logger("businessos.main")
 
@@ -44,6 +47,8 @@ app.add_middleware(
 )
 
 register_exception_handlers(app)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(BaseHTTPMiddleware, dispatch=audit_middleware)
 
 
 from app.api.auth.routes import router as auth_router

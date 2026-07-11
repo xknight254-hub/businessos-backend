@@ -40,12 +40,12 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
-| M2.1 | RBAC | `permissions.py` per module; role decorator/dependency | Endpoints enforce role; 403 on violation |
-| M2.2 | Audit logs | `AuditLog` model + middleware capturing mutating actions | Every write is auditable |
-| M2.3 | Rate limiting | Redis-backed limiter (e.g. slowapi) on auth + public routes | Limits enforced; 429 returned |
-| M2.4 | JWT refresh rotation | Refresh-token rotation + revocation store | Replay of rotated refresh token rejected |
-| M2.5 | Security headers | Helmet-style middleware (HSTS, CSP, X-Content-Type-Options) | Headers present on all responses |
-| M2.6 | Secrets management | No secrets in code/env files; loaded from secret store/env only | `.env` gitignored; scan clean |
+| M2.1 | RBAC | `permissions.py` per module; role decorator/dependency | Endpoints enforce role; 403 on violation | 🟡 planned |
+| M2.2 | Audit logs | `AuditLog` model + middleware capturing mutating actions | Every write is auditable | ✅ done |
+| M2.3 | Rate limiting | Redis-backed limiter (e.g. slowapi) on auth + public routes | Limits enforced; 429 returned | 🟡 planned |
+| M2.4 | JWT refresh rotation | Refresh-token rotation + revocation store | Replay of rotated refresh token rejected | 🟡 planned |
+| M2.5 | Security headers | Helmet-style middleware (HSTS, CSP, X-Content-Type-Options) | Headers present on all responses | ✅ done |
+| M2.6 | Secrets management | No secrets in code/env files; loaded from secret store/env only | `.env` gitignored; scan clean | 🟡 planned |
 
 ---
 
