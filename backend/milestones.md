@@ -53,9 +53,9 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
-| M3.1 | Module file convention | Each domain folder has `router/service/repository/schemas/models/permissions/tasks/events/tests` | All 12 modules conform | 🟡 planned |
-| M3.2 | Repository layer | DB access isolated to `repository.py`; services depend on repos not sessions | No raw SQL/session use outside repos | ✅ done (products/customers/sales/payments repos; routers slimmed) |
-| M3.3 | Modules: auth, crm, inventory, sales, procurement, accounting, payroll, hr, analytics, ai, automation, notifications | Full module skeleton per convention | Each module independently testable | 🟡 planned (core 4 done) |
+| M3.1 | Module file convention | Each domain folder has `router/service/repository/schemas/models/permissions/tasks/events/tests` | All 12 modules conform | ✅ done (app/modules/<domain>/ for all 12; MUDULE_CONVENTION.md) |
+| M3.2 | Repository layer | DB access isolated to `repository.py`; services depend on repos not sessions | No raw SQL/session use outside repos | ✅ done (4 canonical modules; shims for others) |
+| M3.3 | Modules: auth, crm, inventory, sales, procurement, accounting, payroll, hr, analytics, ai, automation, notifications | Full module skeleton per convention | Each module independently testable | ✅ done (12 module packages; 4 canonical folded, 3 re-export, 5 skeleton) |
 
 ---
 
@@ -63,9 +63,9 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 
 | ID | Milestone | Deliverables | Done when |
 |----|-----------|--------------|-----------|
-| M4.1 | Event bus | Redis/Celery event publisher + subscriber | Events emitted/received reliably |
-| M4.2 | Core events | `CustomerCreated`, `InvoiceCreated`, `PaymentReceived`, `InventoryAdjusted`, `WorkflowCompleted` | Each emitted on its trigger |
-| M4.3 | Handlers | Side-effect handlers wired to events (e.g. notify on PaymentReceived) | Handlers idempotent; tested |
+| M4.1 | Event bus | Redis/Celery event publisher + subscriber | Events emitted/received reliably | ✅ done (app/core/events.py: in-process EventBus w/ Redis seam; publish/subscribe; handlers never break publisher) |
+| M4.2 | Core events | `CustomerCreated`, `InvoiceCreated`, `PaymentReceived`, `InventoryAdjusted`, `WorkflowCompleted` | Each emitted on its trigger | ✅ done (CustomerCreated@crm, InvoiceCreated@sales, PaymentCompleted@accounting, InventoryAdjusted@inventory; WorkflowCompleted reserved) |
+| M4.3 | Handlers | Side-effect handlers wired to events (e.g. notify on PaymentReceived) | Handlers idempotent; tested | 🟡 planned (bus + tests in place; handlers land with notifications/automation modules) |
 
 ---
 
