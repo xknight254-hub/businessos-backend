@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import hash_pin, verify_pin, create_access_token, create_refresh_token, decode_token
-from app.core.exceptions import ConflictError, BusinessError
+from app.core.exceptions import ConflictError, BusinessError, UnauthorizedError
 from app.core.logging import get_logger
 from app.models import Business, User
 from app.schemas.auth import (
@@ -85,7 +85,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     )
     user = result.scalar_one_or_none()
     if not user or not verify_pin(req.pin, user.pin_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise UnauthorizedError("Invalid credentials")
     
     access = create_access_token({"sub": user.id, "business_id": user.business_id, "role": user.role})
     refresh = create_refresh_token({"sub": user.id})
@@ -103,12 +103,12 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 async def refresh(req: RefreshRequest, db: AsyncSession = Depends(get_db)):
     payload = decode_token(req.refresh_token)
     if not payload or "sub" not in payload:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise UnauthorizedError("Invalid refresh token")
     
     result = await db.execute(select(User).where(User.id == payload["sub"]))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise UnauthorizedError("User not found")
     
     access = create_access_token({"sub": user.id, "business_id": user.business_id, "role": user.role})
     refresh = create_refresh_token({"sub": user.id})

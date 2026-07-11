@@ -51,6 +51,11 @@ class UnauthorizedError(BusinessError):
     status_code = 401
 
 
+class BadRequestError(BusinessError):
+    code = "bad_request"
+    status_code = 400
+
+
 class ForbiddenError(BusinessError):
     code = "forbidden"
     status_code = 403

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
 from app.models import Product, InventoryBatch
 from app.schemas.products import (
     ProductCreate, ProductUpdate, ProductResponse,
@@ -133,7 +134,7 @@ async def get_product(
     )
     product = result.scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise NotFoundError("Product not found")
     return ProductResponse.model_validate(product)
 
 
@@ -152,7 +153,7 @@ async def update_product(
     )
     product = result.scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise NotFoundError("Product not found")
     
     update_data = req.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -176,7 +177,7 @@ async def delete_product(
     )
     product = result.scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise NotFoundError("Product not found")
     product.is_active = False
     await db.flush()
 
@@ -195,7 +196,7 @@ async def adjust_stock(
     )
     product = result.scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise NotFoundError("Product not found")
     
     # Find or create inventory batch
     batch_result = await db.execute(

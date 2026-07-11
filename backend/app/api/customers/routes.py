@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
 from app.models import Customer, User
 from app.schemas.customers import (
     CustomerCreate, CustomerUpdate, CustomerResponse, CustomerListResponse,
@@ -60,7 +61,7 @@ async def create_customer(
             )
         )
         if result.scalar_one_or_none():
-            raise HTTPException(status_code=409, detail="Customer with this phone already exists")
+            raise ConflictError("Customer with this phone already exists")
     
     customer = Customer(
         business_id=user.business_id,
@@ -89,7 +90,7 @@ async def get_customer(
     )
     customer = result.scalar_one_or_none()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise NotFoundError("Customer not found")
     return CustomerResponse.model_validate(customer)
 
 
@@ -108,7 +109,7 @@ async def update_customer(
     )
     customer = result.scalar_one_or_none()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise NotFoundError("Customer not found")
     
     update_data = req.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -133,10 +134,10 @@ async def add_credit(
     )
     customer = result.scalar_one_or_none()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise NotFoundError("Customer not found")
     
     if customer.credit_balance + amount > (customer.credit_limit or 0):
-        raise HTTPException(status_code=400, detail="Credit limit exceeded")
+        raise BadRequestError("Credit limit exceeded")
     
     customer.credit_balance = (customer.credit_balance or 0) + amount
     await db.flush()
@@ -158,7 +159,7 @@ async def pay_credit(
     )
     customer = result.scalar_one_or_none()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise NotFoundError("Customer not found")
     
     customer.credit_balance = max(0, (customer.credit_balance or 0) - amount)
     await db.flush()

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.core.database import get_db
@@ -85,7 +86,7 @@ async def update_rule(
     )
     rule = result.scalar_one_or_none()
     if not rule:
-        raise HTTPException(status_code=404, detail="Rule not found")
+        raise NotFoundError("Rule not found")
     if req.name is not None: rule.name = req.name
     if req.is_enabled is not None: rule.is_enabled = req.is_enabled
     if req.condition_config is not None:
@@ -110,7 +111,7 @@ async def delete_rule(
     )
     rule = result.scalar_one_or_none()
     if not rule:
-        raise HTTPException(status_code=404, detail="Rule not found")
+        raise NotFoundError("Rule not found")
     await db.delete(rule)
     await db.flush()
 

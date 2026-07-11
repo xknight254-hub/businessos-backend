@@ -29,10 +29,10 @@ Celery, Redis, and event-driven flows (Phases 4, 7) are not yet evident.
 | M1.1 | Structured logging | `core/logging.py`: JSON/leveled logger, request/correlation IDs, no secrets in logs | All modules emit structured logs; PII redacted | ✅ done |
 | M1.2 | Centralized exception handling | `core/exceptions.py` + global handler in `main.py`; typed error responses | Unhandled errors return uniform schema; no stack traces leaked | ✅ done |
 | M1.3 | Typed configuration | `core/config.py` (pydantic-settings): env-driven, validated at boot | Missing/invalid config fails fast at startup | ✅ done |
-| M1.4 | Service-layer validation | Validation moved out of routers into services; routers stay thin | Routers delegate; services reject invalid input with typed errors | 🟡 partial (auth router done; full per-module sweep ongoing) |
+| M1.4 | Service-layer validation | Validation moved out of routers into services; routers stay thin | Routers delegate; services reject invalid input with typed errors | ✅ done |
 
 **Phase 1 exit:** logging + exceptions + config + validation consistent across all `app/` modules.
-- *Progress (2026-07-11):* M1.1–M1.3 complete and committed (`d6a84c6`). M1.4 applied to `auth` router (typed `BusinessError`/`ConflictError` + structured logging); remaining modules (products, sales, payments, customers) to follow. 69 tests passing.
+- *Progress (2026-07-11):* M1.1–M1.4 complete and committed. All `app/api` routers (auth, products, customers, sales, payments, automation) now raise typed `BusinessError` subclasses; zero raw `HTTPException` raises remain. 70 tests passing. New regression tests: `test_foundation.py`, `test_m14_typed_errors.py`.
 
 ---
 

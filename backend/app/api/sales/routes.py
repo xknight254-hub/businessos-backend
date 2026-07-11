@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
 from app.models import (
     Sale, SaleItem, Payment, Product, InventoryBatch, Customer, Business,
 )
@@ -24,7 +25,7 @@ async def create_sale(
     user: User = Depends(get_current_user),
 ):
     if user.role not in ("owner", "manager", "staff"):
-        raise HTTPException(status_code=403, detail="Not authorized to make sales")
+        raise ForbiddenError("Not authorized to make sales")
     
     # Calculate total from items
     total = 0
@@ -40,7 +41,7 @@ async def create_sale(
         )
         product = product_result.scalar_one_or_none()
         if not product:
-            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+            raise NotFoundError(f"Product {item.product_id} not found")
         
         item_total = product.price * item.quantity
         total += item_total
@@ -254,7 +255,7 @@ async def get_sale(
     )
     sale = result.scalar_one_or_none()
     if not sale:
-        raise HTTPException(status_code=404, detail="Sale not found")
+        raise NotFoundError("Sale not found")
     return await _sale_to_response(sale, db)
 
 
@@ -265,7 +266,7 @@ async def void_sale(
     user: User = Depends(get_current_user),
 ):
     if user.role not in ("owner", "manager"):
-        raise HTTPException(status_code=403, detail="Only owner/manager can void sales")
+        raise ForbiddenError("Only owner/manager can void sales")
     
     result = await db.execute(
         select(Sale).where(
@@ -275,9 +276,9 @@ async def void_sale(
     )
     sale = result.scalar_one_or_none()
     if not sale:
-        raise HTTPException(status_code=404, detail="Sale not found")
+        raise NotFoundError("Sale not found")
     if sale.status != "completed":
-        raise HTTPException(status_code=400, detail="Sale already voided")
+        raise BadRequestError("Sale already voided")
     
     sale.status = "voided"
     

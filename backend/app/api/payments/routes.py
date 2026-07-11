@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError, ConflictError, BadRequestError, ForbiddenError, UnauthorizedError
 from app.models import Payment, Sale, User
 from app.schemas.payments import (
     StkPushRequest, StkPushResponse, MpesaCallback, PaymentConfirmation, PaymentResponse,
@@ -24,7 +25,7 @@ async def initiate_stk_push(
 ):
     """Initiate M-Pesa STK Push payment."""
     if req.amount < 1:
-        raise HTTPException(status_code=400, detail="Amount must be at least KES 1")
+        raise BadRequestError("Amount must be at least KES 1")
     
     # Initiate STK Push
     result = await mpesa.stk_push(req.phone, req.amount, req.reference)
