@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     WHATSAPP_API_TOKEN: Optional[str] = None
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
 
+    # SMS (Africa's Talking)
+    SMS_PROVIDER: str = "mock"  # "mock" | "africastalking"
+    AFRICASTALKING_USERNAME: Optional[str] = None
+    AFRICASTALKING_API_KEY: Optional[str] = None
+    AFRICASTALKING_SENDER_ID: Optional[str] = None
+
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
         # Empty-string env values (e.g. "MPESA_CONSUMER_KEY=") must
@@ -57,6 +63,8 @@ class Settings(BaseSettings):
             "MPESA_SHORTCODE", "ETIMS_API_KEY", "ETIMS_TIN", "ETIMS_API_URL",
             "OPENAI_API_KEY", "OPENAI_BASE_URL", "OMNIROUTE_API_KEY",
             "WHATSAPP_API_TOKEN", "WHATSAPP_PHONE_NUMBER_ID",
+            "AFRICASTALKING_USERNAME", "AFRICASTALKING_API_KEY",
+            "AFRICASTALKING_SENDER_ID",
         ):
             if getattr(self, f) == "":
                 setattr(self, f, None)

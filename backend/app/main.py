@@ -62,6 +62,7 @@ from app.modules.accounting.router import router as payments_router
 from app.modules.crm.router import router as customers_router
 from app.api.reports.routes import router as reports_router
 from app.modules.ai import router as ai_router
+from app.api.integrations.routes import router as integrations_router
 from app.api.memory.routes import router as memory_router
 from app.api.dna.routes import router as dna_router
 from app.api.partner.routes import router as partner_router
@@ -75,6 +76,7 @@ app.include_router(payments_router)
 app.include_router(customers_router)
 app.include_router(reports_router)
 app.include_router(ai_router)
+app.include_router(integrations_router)
 app.include_router(memory_router)
 app.include_router(dna_router)
 app.include_router(partner_router)
