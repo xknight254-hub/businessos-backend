@@ -85,7 +85,7 @@ class ObservationEngine:
             .where(
                 Sale.business_id == self.business_id,
                 Sale.status == "completed",
-                Sale.created_at >= datetime.now(timezone.utc) - timedelta(days=30),
+                Sale.created_at >= datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
             )
             .group_by(Product.id, Product.name)
             .order_by(desc("total_qty"))
@@ -131,7 +131,7 @@ class ObservationEngine:
             .where(
                 Sale.business_id == self.business_id,
                 Sale.status == "completed",
-                Sale.created_at >= datetime.now(timezone.utc) - timedelta(days=30),
+                Sale.created_at >= datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
             )
             .group_by(func.date(Sale.created_at))
             .order_by("date")

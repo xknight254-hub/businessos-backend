@@ -10,7 +10,10 @@ def generate_uuid():
 
 
 def utcnow():
-    return datetime.now(timezone.utc)
+    # Naive UTC. SQLAlchemy DateTime columns are tz-naive; storing aware
+    # datetimes works on SQLite but breaks arithmetic/comparison on
+    # Postgres (asyncpg). Naive UTC is consistent across both engines.
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ---------- Business / Organization ----------
